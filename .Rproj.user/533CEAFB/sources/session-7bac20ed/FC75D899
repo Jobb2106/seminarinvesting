@@ -1,0 +1,26 @@
+{
+    "id": "FC75D899",
+    "path": "~/Seminar in Investing/Data.R",
+    "project_path": "Data.R",
+    "type": "r_source",
+    "hash": "665544957",
+    "contents": "",
+    "dirty": true,
+    "created": 1742832979548.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "6,29",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1742832945,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1742833883767,
+    "read_only": false,
+    "read_only_alternatives": []
+}

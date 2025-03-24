@@ -1,0 +1,28 @@
+{
+    "id": "9826CEAB",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1742833805031.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "id": "ff462b452e9d482f805cded0d1a0ec0c",
+        "name": "fivereturn",
+        "title": "fivereturn",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 0,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1742833805031,
+    "read_only": false,
+    "read_only_alternatives": []
+}
