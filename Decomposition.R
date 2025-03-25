@@ -32,7 +32,7 @@ plot(rv_pos, type = "h", col = "magenta",
 signed_jump <- (rv_pos - rv_neg)
 
 
-# Realized signed jump ----------------------------------------------------
+# Relative signed jump ----------------------------------------------------
 rvtotal <- function(returns) {
   sum(returns^2)
 }
