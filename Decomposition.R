@@ -1,6 +1,11 @@
 # This script is for the programming of the decomposition of the RV
 
+# Data --------------------------------------------------------------------
+# Laad de data uit GitHub
+df <- readRDS("data/clean/returns_5m_all_subset.rds")
+
 # Negative/positive realized volatility -----------------------------------
+
 # Compute negative realized volatility for each stock, per day
 rv_negative <- function(returns) {
   neg_returns <- returns[returns < 0]
@@ -13,54 +18,44 @@ rv_positive <- function(returns) {
   sum(pos_returns^2)
 }
 
-# TODO: per stock per dag, dus een loopje maken voor intraday returns
-rv_neg <- sapply(fivereturn, rv_negative)
-rv_pos <- sapply(fivereturn, rv_positive)
-
-
-# Plot
-# Ter simpele controle of het klopt, maar hoeft niet eigenlijk
-plot(rv_neg, type = "h", col = "blue",
-     main = "Realized negative volatility for each stock",
-     xlab = "Stock", ylab = "Volatility")
-
-# Plot
-plot(rv_pos, type = "h", col = "magenta",
-     main = "Realized positive volatility for each stock",
-     xlab = "Stock", ylab = "Volatility")
+# Split the RV into positive and negative part
+df$rv_neg <- sapply(df$returns_5m, rv_negative)
+df$rv_pos <- sapply(df$returns_5m, rv_positive)
 
 
 # Compute signed jump -------------------------------------------------------------
-# TODO: per day (per stock)
-signed_jump <- (rv_pos - rv_neg)
+
+df$signed_jump <- (df$rv_pos - df$rv_neg)
 
 
 # Relative signed jump ----------------------------------------------------
-# TODO: per day (per stock)
-rvtotal <- function(returns) {
-  sum(returns^2)
-}
 
-rv_total <- sapply(fivereturn, rvtotal)
-rv_check <- rv_pos + rv_neg               # should be that rv_total = rv_check
-
-RSJ_day <- signed_jump / rv_total             # per day
+df$RSJ_day <- df$signed_jump / df$rv          
 
 
 # RSJ per week ------------------------------------------------------------\
-library(zoo) # install.packages("zoo")
+library(dplyr)
 
-# Create zoo object
-RSJ_zoo <- zoo(df$RSJ_day, order.by = df$date)
+# Bereken trailing RSJ avg voor laatste 5 dagen en zet andere dagen 0
+# TOCHECK de details, zie documentje 
+df <- df %>%
+  mutate(date = as.Date(date)) %>%
+  arrange(permno, date) %>%
+  group_by(permno) %>%
+  mutate(
+    # Rolling mean over 5 days using base R rollapplyr (no zoo needed)
+    RSJ_roll = zoo::rollapplyr(RSJ_day, width = 5, FUN = mean, fill = NA),
+    
+    # Only keep it if it's a Tuesday, otherwise 0
+    RSJ_week = if_else(weekdays(date) == "Tuesday", RSJ_roll, 0)
+  ) %>%
+  ungroup()
 
-# Rolling mean over 5 trading days (ending on that day)
-RSJ_roll <- rollapply(RSJ_zoo, width = 5, FUN = mean, align = "right", fill = NA)
 
-# Filter only values where the end date is a Tuesday
-RSJ_roll_tuesday <- RSJ_roll[weekdays(index(RSJ_roll)) == "Tuesday"]
 
-RSJ_roll_tuesday
-
+# Save to GitHub ----------------------------------------------------------
+# Vooral relevant voor als we daadwerkelijk met grote set gaan werken
+saveRDS(df, "data/clean/returns_5m_all_subset.rds")
 
 
 
