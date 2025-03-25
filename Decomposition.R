@@ -42,3 +42,5 @@ RSJ <- signed_jump / rv_total
 
 
 
+
+
