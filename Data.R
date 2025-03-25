@@ -7,12 +7,12 @@ library(tidyverse)
 library(stringr)
 library(readr)
 
+
 # Set folders and files -------------------------------------------------------------
-rds_folder <- "/Users/job/Desktop/RDS"
+#rds_folder <- "/Users/job/Desktop/RDS"
+rds_folder <- "/Users/job/Desktop/RDS2"
+#rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
-
-
-
 
 # Extract date and year -------------------------------------------------------------------
 extract_date <- function(path) {
@@ -23,15 +23,18 @@ extract_year <- function(date_str) {
   format(as.Date(date_str), "%Y")
 }
 
+
 # Group files by year -----------------------------------------------------
 file_dates <- as.Date(sapply(rds_files, extract_date))
 files_by_year <- split(rds_files, format(file_dates, "%Y"))
+
 
 # Parameters for filtering ------------------------------------------------
 min_days <- 200 #chatgpt
 min_price <- 5 #paper
 max_price <- 1000 #common
 min_n_obs <- 390 #1transactie per minuut volgens literatuur
+
 
 # Stock universes ------------------------------------------------------------------
 get_eligible_stocks <- function(file_paths, min_days, min_price, max_price, min_n_obs) {
@@ -65,6 +68,7 @@ for (yr in years) {
 
 # Save universe
 saveRDS(universe_by_year, "data/clean/stock_universe_by_year.rds")
+
 
 # Build master set ---------------------------------------
 df_all <- map_dfr(rds_files, function(file) {
