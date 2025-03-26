@@ -33,7 +33,7 @@ df$signed_jump <- (df$rv_pos - df$rv_neg)
 df$RSJ_day <- df$signed_jump / df$rv          
 
 
-# RSJ per week ------------------------------------------------------------\
+# RSJ per week ------------------------------------------------------------
 library(dplyr)
 
 # Bereken trailing RSJ avg voor laatste 5 dagen en zet andere dagen 0
