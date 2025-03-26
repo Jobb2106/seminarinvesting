@@ -18,9 +18,11 @@ library(scales)
 library(lmtest)
 library(broom)
 library(sandwich)
+library(tidyr)
+library(dplyr)
 
 # Portfolio Sorting -------------------------------------------------------
-# We sort based on RSJ on tuesdays
+# We sort based on RSJ on Tuesdays
 assign_portfolios <- function(data, sorting_variable, n_portfolios = 5) {
   data %>%
     group_by(date) %>%
@@ -65,23 +67,40 @@ sum(is.na(rsj_portfolios$portfolio))
 # op dit moment staat in rsj_portfolios de returns voor die week, dus laggen
 # werkt pas als we met grotere subsample gaan werken
 
+# Create a version where we lead the return (i.e., return at T+1 is linked to portfolio at T)
 weekly_df <- rsj_portfolios %>%
   arrange(permno, date) %>%
   group_by(permno) %>%
-  mutate(portfolio_lag = lag(portfolio)) %>%
+  mutate(returns_next_week = lead(returns_week)) %>%
   ungroup()
 
+# Average return per portfolio per date
+# Note dat we hier dus nog voor elke datum gemiddelde moeten berekenen
 portfolio_returns <- weekly_df %>%
-  filter(!is.na(portfolio_lag)) %>%
-  group_by(date, portfolio_lag) %>%
+  filter(!is.na(returns_next_week)) %>%
+  group_by(date, portfolio) %>%
   summarize(
-    mean_returns = mean(returns_week, na.rm = TRUE),
+    mean_return = mean(returns_next_week, na.rm = TRUE),
     .groups = "drop"
   )
 
 
-### Step 2: High-low spread
-#TOCHECK
+### Step 2: High-low spread (T5-T1)
+long_short_df <- portfolio_returns %>%
+  pivot_wider(names_from = portfolio, values_from = mean_return, names_prefix = "P") %>%
+  mutate(
+    long_short = P5 - P1
+  )
 
+# Newey-West standard errors
+# Run a regression: long_short ~ 1 (to get mean and t-stat)
+nw_model <- lm(long_short ~ 1, data = long_short_df)
+
+nw_tstat <- coeftest(nw_model, vcov = NeweyWest(nw_model, lag = 4))
+
+
+
+### Step 3: Calculate FFC4 alpha
+# Moeten deze data nog ergens vandaan toveren, die code zou niet heel lastig moeten zijn
 
 
