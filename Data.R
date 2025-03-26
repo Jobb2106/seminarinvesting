@@ -14,6 +14,7 @@ rds_folder <- "/Users/job/Desktop/RDS2"
 #rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
+
 # Extract date and year -------------------------------------------------------------------
 extract_date <- function(path) {
   str_extract(basename(path), "\\d{4}-\\d{2}-\\d{2}")
@@ -38,7 +39,14 @@ min_n_obs <- 390 #1transactie per minuut volgens literatuur
 
 # Stock universes ------------------------------------------------------------------
 get_eligible_stocks <- function(file_paths, min_days, min_price, max_price, min_n_obs) {
-  all_data <- map_dfr(file_paths, readRDS)
+  safe_read <- function(path) {
+    tryCatch(readRDS(path), error = function(e) {
+      cat("Skipping file:", path, "due to error:", conditionMessage(e), "\n")
+      return(NULL)
+    })
+  } 
+  
+  all_data <- map_dfr(file_paths, safe_read)
   
   filtered <- all_data %>%
     filter(!is.na(close_crsp),
@@ -88,4 +96,3 @@ df_all <- map_dfr(rds_files, function(file) {
 
 # Save the big file
 saveRDS(df_all, "data/clean/returns_5m_all.rds")
-
