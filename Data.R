@@ -5,8 +5,6 @@ library(dplyr)
 library(purrr)
 library(tidyverse)
 library(stringr)
-library(readr)
-
 
 # Set folders and files -------------------------------------------------------------
 #rds_folder <- "/Users/job/Desktop/RDS"
