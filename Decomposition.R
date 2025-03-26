@@ -33,10 +33,11 @@ df$signed_jump <- (df$rv_pos - df$rv_neg)
 df$RSJ_day <- df$signed_jump / df$rv          
 
 
-# RSJ per week ------------------------------------------------------------\
+# RSJ per week ------------------------------------------------------------
 library(dplyr)
 
 # Bereken trailing RSJ avg voor laatste 5 dagen en zet andere dagen 0
+# hier bereken in gelijk de average return trailing, weet niet hoe handig dat uiteindelijk is
 # TOCHECK de details, zie documentje 
 df <- df %>%
   mutate(date = as.Date(date)) %>%
@@ -45,9 +46,11 @@ df <- df %>%
   mutate(
     # Rolling mean over 5 days using base R rollapplyr (no zoo needed)
     RSJ_roll = zoo::rollapplyr(RSJ_day, width = 5, FUN = mean, fill = NA),
+    returns_roll = zoo::rollapplyr(open_close_log_ret, width = 5, FUN = mean, fill = NA),
     
     # Only keep it if it's a Tuesday, otherwise 0
-    RSJ_week = if_else(weekdays(date) == "Tuesday", RSJ_roll, 0)
+    RSJ_week = if_else(weekdays(date) == "Tuesday", RSJ_roll, 0),
+    returns_week = if_else(weekdays(date) == "Tuesday", returns_roll, 0)
   ) %>%
   ungroup()
 
