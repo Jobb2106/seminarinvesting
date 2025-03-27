@@ -8,7 +8,7 @@ library(stringr)
 
 # Set folders and files -------------------------------------------------------------
 #rds_folder <- "/Users/job/Desktop/RDS"
-rds_folder <- "/Users/job/Desktop/RDS2"
+rds_folder <- "/Users/job/Desktop/RDS3"
 #rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
@@ -93,6 +93,5 @@ df_all <- map_dfr(rds_files, function(file) {
 })
 
 # Save the big file
-saveRDS(df_all, "data/clean/returns_5m_all.rds")
+saveRDS(df_all, "data/clean/data_cleaned.rds")
 
-test
