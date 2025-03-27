@@ -60,7 +60,7 @@ get_eligible_stocks <- function(file_paths, min_days, min_price, max_price, min_
   return(stock_counts$sym_root)
 }
 
-years <- as.character(1993:2022)
+years <- as.character(1993:2023)
 universe_by_year <- list()
 
 for (yr in years) {
@@ -94,3 +94,5 @@ df_all <- map_dfr(rds_files, function(file) {
 
 # Save the big file
 saveRDS(df_all, "data/clean/returns_5m_all.rds")
+
+test
