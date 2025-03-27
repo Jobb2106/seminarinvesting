@@ -102,3 +102,4 @@ for (i in 1:(length(week_list) - 1)) {
   df_filtered <- df_week %>% filter(sym_root %in% eligible)
   saveRDS(df_filtered, paste0("data/weekly_filtered/filtered_", next_week, ".rds"))
 }
+
