@@ -97,7 +97,3 @@ df_all <- map_dfr(rds_files, function(file) {
 # Save the big file
 saveRDS(df_all, "data/clean/filtered_stocks.rds")
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 13f21efbc0d78694ca67e513466d961781bfb8cd
