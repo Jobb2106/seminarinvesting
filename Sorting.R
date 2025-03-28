@@ -1,6 +1,7 @@
 # This script can be used for portfolio sorting
 # Deze link van TidyVerse heb ik vooral gebruikt: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html
 
+# TODO ook sorten op Realized Quantiles & Double-Sorten
 
 # Data --------------------------------------------------------------------
 # Laad de data uit GitHub
@@ -23,6 +24,7 @@ library(dplyr)
 
 # Portfolio Sorting -------------------------------------------------------
 # We sort based on RSJ on Tuesdays
+# Kan met nieuwe data structure anders/beter
 assign_portfolios <- function(data, sorting_variable, n_portfolios = 5) {
   data %>%
     group_by(date) %>%
@@ -45,6 +47,7 @@ assign_portfolios <- function(data, sorting_variable, n_portfolios = 5) {
 }
 
 # Filter Tuesdays only
+# Hoeft niet meer met nieuwe data structure
 df_tuesday <- df %>%
   filter(weekdays(date) == "Tuesday")
 
@@ -100,7 +103,22 @@ nw_tstat <- coeftest(nw_model, vcov = NeweyWest(nw_model, lag = 4))
 
 
 
-### Step 3: Calculate FFC4 alpha
+### Step 3: Calculate FFC5 alpha for each portfolio
 # Moeten deze data nog ergens vandaan toveren, die code zou niet heel lastig moeten zijn
+# Run Fama-French (heb nu FFC4) regression per portfolio
+
+ffc_results <- ffc_data %>%
+  group_by(portfolio) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ lm(excess_ret ~ MKT_RF + SMB + HML + MOM, data = .x)),
+    robust_se = map(model, ~ vcovHC(.x, type = "HC1")),
+    coefs = map2(model, robust_se, ~ coeftest(.x, vcov = .y) %>% tidy())
+  ) %>%
+  unnest(coefs) %>%
+  filter(term == "(Intercept)") %>%
+  select(portfolio, estimate, std.error, statistic, p.value)
+
+# Dan tenslotte weer de High Low spread ook voor deze
 
 

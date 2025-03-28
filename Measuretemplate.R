@@ -1,12 +1,11 @@
 # Template measures -------------------------------------------------------
-# Voorlopig niks mee doen
-df <- readRDS("data/clean/returns_5m_all.rds")
 
-df_metrics <- df %>%
-  mutate(
-    rv = map_dbl(returns_5m, ~ sum((.x)^2, na.rm = TRUE)),
-    es_95 = map_dbl(returns_5m, ~ mean(.x[.x < quantile(.x, 0.05, na.rm = TRUE)], na.rm = TRUE))
-  ) %>%
-  select(sym_root, date, close_crsp, rv, es_95)
+# Folder with weekly filtered .rds files
+filtered_folder <- "data/weekly_filtered"
+filtered_files <- list.files(filtered_folder, pattern = "\\.rds$", full.names = TRUE)
 
-saveRDS(df_metrics, "data/metrics/metrics.rds")
+# Functions to compute RV parts
+rv_negative <- function(returns) {
+  neg_returns <- returns[returns < 0]
+  sum(neg_returns^2)
+}
