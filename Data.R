@@ -5,11 +5,12 @@ library(dplyr)
 library(purrr)
 library(tidyverse)
 library(stringr)
+library(readr)
+
 
 # Set folders and files -------------------------------------------------------------
 #rds_folder <- "/Users/job/Desktop/RDS"
-rds_folder <- "/Users/job/Desktop/RDS2"
-#rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
+rds_folder <- "/Users/job/Desktop/RDS3"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
 
@@ -32,7 +33,8 @@ files_by_year <- split(rds_files, format(file_dates, "%Y"))
 min_days <- 200 #chatgpt
 min_price <- 5 #paper
 max_price <- 1000 #common
-min_n_obs <- 390 #1transactie per minuut volgens literatuur
+min_n_obs <- 80 #1transactie per minuut volgens literatuur (good bad volatility. paper)
+#every week instead of
 
 
 # Stock universes ------------------------------------------------------------------
@@ -93,6 +95,9 @@ df_all <- map_dfr(rds_files, function(file) {
 })
 
 # Save the big file
-saveRDS(df_all, "data/clean/returns_5m_all.rds")
+saveRDS(df_all, "data/clean/filtered_stocks.rds")
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 13f21efbc0d78694ca67e513466d961781bfb8cd
