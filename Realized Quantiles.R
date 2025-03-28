@@ -12,7 +12,6 @@ c <- 78
 H <- 0.5
 scaling_factor <- c^H
 
-# Assuming your data frame is called `df` and has columns: date, interval, return
 # Step 1: Group by day and compute quantile and ES
 results <- df %>%
   group_by(date) %>%
@@ -24,3 +23,5 @@ results <- df %>%
     RQ = scaling_factor * Q_p,
     RES = scaling_factor * ES_p
   )
+
+# Hierna dan (double) sorten & opnieuw Fama-French regressie
