@@ -8,30 +8,24 @@ mu = sqrt(2 / pi)
 M = 78 
 delta = 1/M 
 
-# Add the absolute returns to the dataframe 
-
-
 # Function to calculate the realized BiPower variation
 BPV <- function(returns){
   abs_returns <- abs(returns)
-  BPV <- (1 / mu1^2) * sum(abs_returns[-1] * abs_returns[-length(abs_returns)])
+  return(sum(abs_returns[-1] * abs_returns[-length(abs_returns)]))
 } 
 
-
-# Function to calculate the realized quadpower variation
+# Function to calculate the realized QuadPower variation
 QPV <- function(returns){
-  QPV <- M * sum(abs_returns[1:(length(abs_returns)-3)] *
-               abs_returns[2:(length(abs_returns)-2)] *
-               abs_returns[3:(length(abs_returns)-1)] *
-               abs_returns[4:length(abs_returns)])
+  abs_returns <- abs(returns)
+  return(M * sum(
+    abs_returns[1:(length(abs_returns)-3)] *
+      abs_returns[2:(length(abs_returns)-2)] *
+      abs_returns[3:(length(abs_returns)-1)] *
+      abs_returns[4:length(abs_returns)]
+  ))
 }
 
 # Function to calculate the adjusted jump-ratio test statistic
-AJR_stat <- function(returns, QPV, BPV, RV){
-  AJR_stat <- sqrt(M) / max(1, QPV / (BPV / mu^(-2))^2) * (BPV / RV - 1) 
+daily_AJR_stat <- function(returns, QPV, BPV, RV, M, mu) {
+  sqrt(M) / sqrt(max(1, QPV / (BPV^2)) * (mu^(-2) * BPV / RV - 1))
 }
-
-
-
-
-
