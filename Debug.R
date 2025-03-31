@@ -16,3 +16,6 @@ safe_read <- function(path) {
 }
 
 safe_read(rds_files)
+
+filename <- file.choose()
+test <- readRDS(filename)
