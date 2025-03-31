@@ -102,7 +102,18 @@ for (i in 1:(length(week_list) - 1)) {
   
   df_filtered <- df_week %>% filter(sym_root %in% eligible)
   saveRDS(df_filtered, paste0("data/subset/filtered_", next_week, ".rds"))
+  
+  # Dropped stocks (present last week, not this week)
+  if (!is.null(universe_by_week[[current_week]])) {
+    dropped_stocks <- setdiff(universe_by_week[[current_week]], eligible)
+    
+    if (length(dropped_stocks) > 0) {
+      # Save data of dropped stocks
+      dropped_data <- df_week %>% filter(sym_root %in% dropped_stocks)
+      saveRDS(dropped_data, paste0("data/setdifference/dropped_data_", next_week, ".rds"))
+    }
+  }
 }
 
 #if (!dir.exists("data/weekly_filtered")) dir.create("data/weekly_filtered")
-#if (!dir.exists("data/subset")) dir.create("data/subset")
+#if (!dir.exists("data/setdifference")) dir.create("data/setdifference")
