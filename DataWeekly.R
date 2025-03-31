@@ -12,6 +12,7 @@ library(lubridate)
 # Set folders and files -------------------------------------------------------------
 rds_folder <- "/Users/job/Desktop/RDS3"
 #rds_folder <- "/Users/job/Desktop/RDS"
+#rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
 
@@ -41,7 +42,7 @@ files_by_week <- split(rds_files, week_ids)
 min_days <- 3 #good bad vol paper
 min_price <- 5 #paper
 max_price <- 1000 #common
-min_n_obs <- 80 #(good bad volatility paper)
+min_n_obs <- 80 #(good bad volatility paper) staat er niet echt in
 
 
 # Stock universes per week ------------------------------------------------
