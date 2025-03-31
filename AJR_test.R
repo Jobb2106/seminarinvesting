@@ -7,7 +7,6 @@ v = 0.6090
 mu = sqrt(2 / pi)
 M = 78 
 delta = 1/M 
-c_negative = pi / 2 
 
 # Function to calculate the realized BiPower variation
 BPV <- function(returns){
@@ -43,23 +42,6 @@ rv_negative <- function(returns) {
   neg_returns <- returns[returns < 0]
   sum(neg_returns^2)
 }
-
-# Function to calculate the negative bipower variation 
-BPV_negative <- function(returns){
-  abs_returns <- abs(returns)
-  return(sum(abs_returns[-1] * abs_returns[-length(abs_returns)] * (returns(-1) < 0)))
-} 
-
-# Function to calculate negative JV 
-JV_negative <- function(rv_negative, BPV_negative, mu){
-  max(RV_negative - mu^(-2) * BPV_negative, 0)
-}
-
-# Function to calculate negative JR 
-JR_negative <- function(JV_negative, rv_negative){
-  JV_negative / rv_negative 
-}
-
 
 
 
