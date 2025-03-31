@@ -103,3 +103,4 @@ for (i in 1:(length(week_list) - 1)) {
   saveRDS(df_filtered, paste0("data/weekly_filtered/filtered_", next_week, ".rds"))
 }
 
+#if (!dir.exists("data/weekly_filtered")) dir.create("data/weekly_filtered")
