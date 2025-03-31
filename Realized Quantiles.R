@@ -25,13 +25,13 @@ scaling_factor <- c^H
 process_with_rq <- function(file_path) {
   df <- readRDS(file_path)
   
-  #Step 1: Unnest returns_5m into long format
+  #long format
   df_long <- df %>%
     select(sym_root, date, returns_5m) %>%
     unnest_longer(returns_5m, values_to = "r_5m") %>%
     filter(!is.na(r_5m))
   
-  #Step 2: Compute daily quantile and ES across all 5-min returns
+  #Compute daily quantile and ES
   rq_data <- df_long %>%
     group_by(sym_root, date) %>%
     summarise(
@@ -44,7 +44,7 @@ process_with_rq <- function(file_path) {
       RES = scaling_factor * ES_p
     )
   
-  #Step 3: Join back into the original dataframe by date
+  #Join back into the original df by date
   df <- df %>%
     left_join(rq_data %>% select(sym_root, date, RQ, RES), by = c("sym_root", "date"))
   
