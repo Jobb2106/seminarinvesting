@@ -5,12 +5,7 @@
 
 # Data --------------------------------------------------------------------
 # Laad de data uit GitHub
-df <- readRDS("data/clean/returns_5m_all_subset.rds")
-
-# test, leave out NA for first obs
-df <- df %>%
-  filter(as.Date(date) != as.Date("2016-11-01"))
-
+file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
 # Libraries ---------------------------------------------------------------
 library(tidyverse)
@@ -22,88 +17,69 @@ library(sandwich)
 library(tidyr)
 library(dplyr)
 
-# Portfolio Sorting -------------------------------------------------------
-# We sort based on RSJ on Tuesdays
-# Kan met nieuwe data structure anders/beter
-assign_portfolios <- function(data, sorting_variable, n_portfolios = 5) {
-  data %>%
-    group_by(date) %>%
-    mutate(
-      # Breakpoints per Tuesday
-      breakpoint = list(quantile(
-        {{ sorting_variable }},
-        probs = seq(0, 1, length.out = n_portfolios + 1),
-        na.rm = TRUE,
-        names = FALSE
-      )),
-      portfolio = findInterval(
-        {{ sorting_variable }},
-        breakpoint[[1]],
-        all.inside = TRUE
-      )
-    ) %>%
-    ungroup() %>%
-    select(-breakpoint)
+
+# Portfolio Sorting ----------------------------------------------------
+assign_portfolio <- function(data, sorting_variable, n_portfolios) {
+  breakpoints <- data |>
+    pull({{ sorting_variable }}) |>
+    quantile(
+      probs = seq(0, 1, length.out = n_portfolios + 1),
+      na.rm = TRUE,
+      names = FALSE
+    )
+  
+  data <- data |>
+    mutate(portfolio = findInterval(data[[ sorting_variable ]], breakpoints, all.inside = TRUE))
+  
+  return(data$portfolio)
 }
 
-# Filter Tuesdays only
-# Hoeft niet meer met nieuwe data structure
-df_tuesday <- df %>%
-  filter(weekdays(date) == "Tuesday")
 
-# Assign portfolios using RSJ_week
-rsj_portfolios <- assign_portfolios(
-  data = df_tuesday,
-  sorting_variable = RSJ_week,
-  n_portfolios = 5
-) %>%
-  select(permno, date, portfolio, RSJ_week, returns_week)
+# Return for next week ----------------------------------------------------
+add_next_week_return <- function(current_week_df, next_week_df) {
+  next_returns <- next_week_df %>%
+    select(permno, returns_week) %>%
+    rename(next_week_return = returns_week)
+  
+  current_week_df %>%
+    left_join(next_returns, by = "permno")
+}
 
-# Sanity check
-hist(rsj_portfolios$portfolio)
-sum(is.na(rsj_portfolios$portfolio))
+
+# Performance Evaluation --------------------------------------------------
+summarise_portfolios <- function(df) {
+  avg_returns <- df %>%
+    group_by(portfolio) %>%
+    summarise(
+      avg_next_return = mean(next_week_return, na.rm = TRUE),
+      n_obs = sum(!is.na(next_week_return)),
+      nw_test <- lm(next_week_return ~ 1, data = df),
+      nw_tstat <- coeftest(nw_test, vcov = NeweyWest)[1, "t value"],
+      .groups = "drop"
+    )
+  return(avg_returns)
+}
+
+# High-low spread
+calculate_weekly_spreads <- function(df, week_id) {
+  df %>%
+    filter(portfolio %in% c(1, 5)) %>%
+    select(portfolio, next_week_return) %>%
+    group_by(portfolio) %>%
+    summarise(next_week_return = mean(next_week_return, na.rm = TRUE), .groups = "drop") %>%
+    pivot_wider(names_from = portfolio, values_from = next_week_return, names_prefix = "P") %>%
+    mutate(spread_P5_P1 = P5 - P1, week_id = week_id)
+}
+
+
+
+
+
+
 
 
 # Performance Evaluation --------------------------------------------------
 
-### Step 1: Average Return for upcoming week
-# op dit moment staat in rsj_portfolios de returns voor die week, dus laggen
-# werkt pas als we met grotere subsample gaan werken
-
-# Create a version where we lead the return (i.e., return at T+1 is linked to portfolio at T)
-weekly_df <- rsj_portfolios %>%
-  arrange(permno, date) %>%
-  group_by(permno) %>%
-  mutate(returns_next_week = lead(returns_week)) %>%
-  ungroup()
-
-# Average return per portfolio per date
-# Note dat we hier dus nog voor elke datum gemiddelde moeten berekenen
-portfolio_returns <- weekly_df %>%
-  filter(!is.na(returns_next_week)) %>%
-  group_by(date, portfolio) %>%
-  summarize(
-    mean_return = mean(returns_next_week, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-
-### Step 2: High-low spread (T5-T1)
-long_short_df <- portfolio_returns %>%
-  pivot_wider(names_from = portfolio, values_from = mean_return, names_prefix = "P") %>%
-  mutate(
-    long_short = P5 - P1
-  )
-
-# Newey-West standard errors
-# Run a regression: long_short ~ 1 (to get mean and t-stat)
-nw_model <- lm(long_short ~ 1, data = long_short_df)
-
-nw_tstat <- coeftest(nw_model, vcov = NeweyWest(nw_model, lag = 4))
-
-
-
-### Step 3: Calculate FFC5 alpha for each portfolio
 # Moeten deze data nog ergens vandaan toveren, die code zou niet heel lastig moeten zijn
 # Run Fama-French (heb nu FFC4) regression per portfolio
 
