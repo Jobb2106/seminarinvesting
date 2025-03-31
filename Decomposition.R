@@ -8,6 +8,7 @@ file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rd
 # Libraries ---------------------------------------------------------------
 library(dplyr)
 library(stringr)
+library(lmtest)
 
 
 # Negative/positive realized volatility -----------------------------------
@@ -79,14 +80,22 @@ for (i in 1:(length(week_ids) - 1)) {
   
   joined <- add_next_week_return(current_week, next_week)
   
-  perf <- summarise_portfolios(joined)
-  perf$week_id <- week_ids[i]
-  portfolio_performance[[week_ids[i]]] <- perf
+  # perf <- summarise_portfolios(joined)
+  #perf$week_id <- week_ids[i]
+  #portfolio_performance[[week_ids[i]]] <- perf
   
-  spread <- calculate_weekly_spreads(joined, week_ids[i])
-  weekly_spreads[[week_ids[i]]] <- spread
+ # spread <- calculate_weekly_spreads(joined, week_ids[i])
+  #weekly_spreads[[week_ids[i]]] <- spread
 }
 
+portfolio_summary_df <- bind_rows(portfolio_performance)
 
+total_portfolio_summary <- portfolio_summary_df %>%
+  group_by(portfolio) %>%
+  summarise(
+    avg_return_overall = mean(avg_next_return, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
 
 

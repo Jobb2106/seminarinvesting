@@ -48,16 +48,34 @@ add_next_week_return <- function(current_week_df, next_week_df) {
 
 # Performance Evaluation --------------------------------------------------
 summarise_portfolios <- function(df) {
-  avg_returns <- df %>%
+  df %>%
     group_by(portfolio) %>%
-    summarise(
-      avg_next_return = mean(next_week_return, na.rm = TRUE),
-      n_obs = sum(!is.na(next_week_return)),
-      nw_test <- lm(next_week_return ~ 1, data = df),
-      nw_tstat <- coeftest(nw_test, vcov = NeweyWest)[1, "t value"],
-      .groups = "drop"
-    )
-  return(avg_returns)
+    group_split() %>%
+    purrr::map_dfr(function(group_df) {
+      p <- unique(group_df$portfolio)
+      x <- group_df$next_week_return
+      n <- sum(!is.na(x))
+      
+      if (n < 4 || is.na(p)) {
+        return(tibble(
+          portfolio = p,
+          avg_next_return = mean(x, na.rm = TRUE),
+          n_obs = n,
+          nw_se = NA_real_,
+          t_stat = NA_real_
+        ))
+      }
+      
+      model <- lm(x ~ 1)
+      nw <- coeftest(model, vcov = NeweyWest)
+      tibble(
+        portfolio = p,
+        avg_next_return = nw[1, "Estimate"],
+        n_obs = n,
+        nw_se = nw[1, "Std. Error"],
+        t_stat = nw[1, "t value"]
+      )
+    })
 }
 
 # High-low spread
