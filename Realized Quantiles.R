@@ -1,4 +1,5 @@
 # This script is used to compute the realized quantiles
+# TODO nog naar week
 
 # Packages ----------------------------------------------------------------
 library(dplyr)
@@ -13,13 +14,11 @@ output_folder <- "data/weekly_filtered_RQ"
 #if (!dir.exists(output_folder)) dir.create(output_folder)
 
 
-# Realized quantiles parameters ------------------------------------------------------
+# Parameters --------------------------------------------------------------
 p <- 0.05
 c <- 78
 H <- 0.5
-#scaling_factor <- 1
 scaling_factor <- c^H
-
 
 # Calculate Quantile and RES ----------------------------------------------------------------
 process_with_rq <- function(file_path) {
@@ -44,9 +43,12 @@ process_with_rq <- function(file_path) {
       RES = scaling_factor * ES_p
     )
   
-  #Join back into the original df by date
+  # Dit klopt nog niet want is nu dus op daily data
+  rq_data$portfolio <- assign_portfolio(rq_data, "RES", n_portfolios = 5) 
+  
+  # Join back into the original df by date
   df <- df %>%
-    left_join(rq_data %>% select(sym_root, date, RQ, RES), by = c("sym_root", "date"))
+    left_join(rq_data %>% select(sym_root, date, RQ, RES, portfolio), by = c("sym_root", "date"))
   
   week_id <- str_extract(basename(file_path), "20\\d{2}-W\\d{2}")
   saveRDS(df, file.path(output_folder, paste0("rsj_rq_", week_id, ".rds")))
@@ -55,11 +57,10 @@ process_with_rq <- function(file_path) {
   return(NULL)
 }
 
-
 # Process all files -------------------------------------------------------
 walk(file_paths, process_with_rq)
 
 
 # (Double) sorten & Fama-French --------------------------------------------
-# Hierna dan (double) sorten & opnieuw Fama-French regressie
+
 
