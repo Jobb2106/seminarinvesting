@@ -8,10 +8,16 @@ cleaned_folder <- "input/cleaned"
 # List all .rds files
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
+# Loop through and clean with progress
+total_files <- length(rds_files)
+
 # Loop through and clean
-for (file in rds_files) {
+for (i in seq_along(rds_files)) {
+  file <- rds_files[i]
+  file_name <- basename(file)
+  
   df <- tryCatch(readRDS(file), error = function(e) {
-    cat("Error reading", file, ":", conditionMessage(e), "\n")
+    cat("Error reading", file_name, ":", conditionMessage(e), "\n")
     return(NULL)
   })
   
@@ -21,7 +27,10 @@ for (file in rds_files) {
     }
     
     # Save cleaned file
-    out_path <- file.path(cleaned_folder, basename(file))
+    out_path <- file.path(cleaned_folder, file_name)
     saveRDS(df, out_path)
+    
+    # Show progress
+    cat(sprintf("[%d/%d] Cleaned: %s\n", i, total_files, file_name))
   }
 }
