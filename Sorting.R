@@ -34,95 +34,53 @@ assign_portfolio <- function(data, sorting_variable, n_portfolios) {
   return(data$portfolio)
 }
 
-
 # Return for next week ----------------------------------------------------
-add_next_week_return <- function(current_week_df, next_week_df, week_id, dropped_data_path) {
-  # Step 1: Get primary next week return data
+# Including the next week return for the dropped companies
+add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
+  # Step 1: Pull returns from next_week_df
   next_returns <- next_week_df %>%
     select(permno, returns_week) %>%
     rename(next_week_return = returns_week)
   
-  # Step 2: Merge into current week data
+  # Step 2: Left join to current week data
   merged_df <- current_week_df %>%
     left_join(next_returns, by = "permno")
   
-  # Step 3: Check if there are any missing next_week_return
-  if (any(is.na(merged_df$next_week_return))) {
+  # Step 3: If any returns are missing, try filling from dropped_df
+  if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
+    fallback_returns <- dropped_df %>%
+      select(permno, returns_week) %>%
+      rename(next_week_return = returns_week)
     
-    # Construct fallback filename
-    fallback_file <- file.path(dropped_data_path, paste0("dropped_data_", week_id, ".rds"))
-    
-    if (file.exists(fallback_file)) {
-      dropped_data <- readRDS(fallback_file)
-      
-      # Clean and rename fallback
-      fallback_returns <- dropped_data %>%
-        select(permno, returns_week) %>%
-        rename(next_week_return = returns_week)
-      
-      # Fill in missing values using coalesce
-      merged_df <- merged_df %>%
-        left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
-        mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
-        select(-next_week_return.fallback)
-    } else {
-      warning(paste("Fallback file not found:", fallback_file))
-    }
+    merged_df <- merged_df %>%
+      left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
+      mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
+      select(-next_week_return.fallback)
   }
   
   return(merged_df)
 }
 
-
-
 # Performance Evaluation --------------------------------------------------
 summarise_portfolios <- function(df) {
-  df %>%
+  portfolio_avg <- df %>%
     group_by(portfolio) %>%
-    group_split() %>%
-    purrr::map_dfr(function(group_df) {
-      p <- unique(group_df$portfolio)
-      x <- group_df$next_week_return
-      n <- sum(!is.na(x))
-      
-      if (n < 4 || is.na(p)) {
-        return(tibble(
-          portfolio = p,
-          avg_next_return = mean(x, na.rm = TRUE),
-          n_obs = n,
-          nw_se = NA_real_,
-          t_stat = NA_real_
-        ))
-      }
-      
-      model <- lm(x ~ 1)
-      nw <- coeftest(model, vcov = NeweyWest)
-      tibble(
-        portfolio = p,
-        avg_next_return = nw[1, "Estimate"],
-        n_obs = n,
-        nw_se = nw[1, "Std. Error"],
-        t_stat = nw[1, "t value"]
-      )
-    })
+    summarise(
+      avg_next_week_return = mean(next_week_return, na.rm = TRUE),
+      n = n(),
+      .groups = "drop"
+    )
+  
+  high_ret <- portfolio_avg %>% filter(portfolio == 5) %>% pull(avg_next_week_return)
+  low_ret  <- portfolio_avg %>% filter(portfolio == 1) %>% pull(avg_next_week_return)
+  spread <- high_ret - low_ret
+  
+  tibble(
+    P1 = low_ret,
+    P5 = high_ret,
+    spread = spread
+  )
 }
-
-# High-low spread
-calculate_weekly_spreads <- function(df, week_id) {
-  df %>%
-    filter(portfolio %in% c(1, 5)) %>%
-    select(portfolio, next_week_return) %>%
-    group_by(portfolio) %>%
-    summarise(next_week_return = mean(next_week_return, na.rm = TRUE), .groups = "drop") %>%
-    pivot_wider(names_from = portfolio, values_from = next_week_return, names_prefix = "P") %>%
-    mutate(spread_P5_P1 = P5 - P1, week_id = week_id)
-}
-
-
-
-
-
-
 
 
 # Performance Evaluation --------------------------------------------------

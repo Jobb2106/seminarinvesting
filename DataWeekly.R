@@ -10,8 +10,7 @@ library(lubridate)
 
 
 # Set folders and files -------------------------------------------------------------
-rds_folder <- "input/cleaned"
-#rds_folder <- "/Users/job/Desktop/RDS3"
+rds_folder <- "/Users/job/Desktop/RDS3"
 #rds_folder <- "/Users/job/Desktop/RDS"
 #rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
@@ -27,10 +26,10 @@ extract_year <- function(date_str) {
 }
 
 week_key <- function(date) {
+  # Shift date back 1 day: so Tuesday becomes "start of week"
   shifted_date <- as.Date(date) - days(1)
-  paste0(isoyear(shifted_date), "-W", sprintf("%02d", isoweek(shifted_date)))
+  paste0(year(shifted_date), "-W", sprintf("%02d", isoweek(shifted_date)))
 }
-
 
 
 # Group files by week -----------------------------------------------------
