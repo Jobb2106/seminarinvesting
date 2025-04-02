@@ -36,14 +36,43 @@ assign_portfolio <- function(data, sorting_variable, n_portfolios) {
 
 
 # Return for next week ----------------------------------------------------
-add_next_week_return <- function(current_week_df, next_week_df) {
+add_next_week_return <- function(current_week_df, next_week_df, week_id, dropped_data_path) {
+  # Step 1: Get primary next week return data
   next_returns <- next_week_df %>%
     select(permno, returns_week) %>%
     rename(next_week_return = returns_week)
   
-  current_week_df %>%
+  # Step 2: Merge into current week data
+  merged_df <- current_week_df %>%
     left_join(next_returns, by = "permno")
+  
+  # Step 3: Check if there are any missing next_week_return
+  if (any(is.na(merged_df$next_week_return))) {
+    
+    # Construct fallback filename
+    fallback_file <- file.path(dropped_data_path, paste0("dropped_data_", week_id, ".rds"))
+    
+    if (file.exists(fallback_file)) {
+      dropped_data <- readRDS(fallback_file)
+      
+      # Clean and rename fallback
+      fallback_returns <- dropped_data %>%
+        select(permno, returns_week) %>%
+        rename(next_week_return = returns_week)
+      
+      # Fill in missing values using coalesce
+      merged_df <- merged_df %>%
+        left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
+        mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
+        select(-next_week_return.fallback)
+    } else {
+      warning(paste("Fallback file not found:", fallback_file))
+    }
+  }
+  
+  return(merged_df)
 }
+
 
 
 # Performance Evaluation --------------------------------------------------
