@@ -9,9 +9,7 @@ library(stringr)
 
 # Import data -------------------------------------------------------------
 file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
-output_folder <- "data/weekly_filtered_RQ"
-output_folder <- "data/weekly_ajr"
-if (!dir.exists(output_folder)) dir.create(output_folder)
+output_folder <- "data/metrics/weekly_ajr"
 
 
 # Numeric values ----------------------------------------------------------
@@ -25,7 +23,13 @@ delta = 1/M
 BPV <- function(returns){
   abs_returns <- abs(returns)
   return(sum(abs_returns[-1] * abs_returns[-length(abs_returns)]))
-} 
+}
+
+
+# Calculate the RV --------------------------------------------------------
+RV <- function(returns) {
+  sum(returns^2)
+}
 
 
 # Calculate the realized QuadPower variation ------------------------------
@@ -41,8 +45,41 @@ QPV <- function(returns){
 
 
 # Calculate the adjusted jump-ratio test statistic ------------------------
-daily_AJR_stat <- function(returns, QPV, BPV, RV, M, mu) {
-  sqrt(M) / sqrt(max(1, QPV / (BPV^2)) * (mu^(-2) * BPV / RV - 1))
+AJR <- function(RV, BPV, QPV, M, mu) {
+  wortel <- max(1, QPV / (BPV^2))
+  (sqrt(M) / sqrt(wortel)) * ((mu^(-2)) * BPV / RV - 1)
 }
 
+
+# Process weeks -----------------------------------------------------------
+process_weekly_ajr <- function(file_path) {
+  df <- readRDS(file_path)
+  
+  week_id <- str_extract(basename(file_path), "20\\d{2}-W\\d{2}")
+  
+  df_ajr <- df %>%
+    mutate(
+      rv = map_dbl(returns_5m, RV),
+      bpv = map_dbl(returns_5m, BPV),
+      qpv = map_dbl(returns_5m, QPV),
+      ajr = mapply(AJR, rv, bpv, qpv, MoreArgs = list(M = M, mu = mu))
+    ) %>%
+    filter(!is.na(ajr)) %>%
+    group_by(sym_root) %>%
+    summarise(
+      week = week_id,
+      ajr_sum = sum(ajr, na.rm = TRUE),
+      ajr_mean = mean(ajr, na.rm = TRUE),
+      n_days = n(),
+      .groups = "drop"
+    )
+  
+  # Save
+  saveRDS(df_ajr, file.path(output_folder, paste0("ajr_", week_id, ".rds")))
+  cat("Saved AJR for", week_id, "\n")
+}
+
+
+# Apply to all ------------------------------------------------------------
+walk(file_paths, process_weekly_ajr)
 
