@@ -12,6 +12,7 @@ library(dplyr)
 library(stringr)
 library(lmtest)
 library(sandwich)
+library(purrr)
 
 
 # Negative/positive realized volatility -----------------------------------
@@ -44,12 +45,10 @@ summarise_week <- function(df, week_id) {
     summarise(
       RSJ_week = mean(RSJ_day, na.rm = TRUE),
       returns_week = mean(open_close_log_ret, na.rm = TRUE),
-      n_days = n(),
       .groups = "drop"
     ) %>%
     mutate(week_id = week_id)
 }
-
 
 # Calculations ------------------------------------------------------------
 weekly_results <- list()
@@ -59,7 +58,7 @@ spread_data <- list()
 
 # Hierbij wil ik mijn officiele excuses aanbieden aan Jop die dit idee op het begin had. Het was een goed idee.
 # Bereken weekly_returns & RSJ voor elke week en bereken ook weekly_returns voor bedrijven die eruit vallen
-for (file in file_paths) {
+for (file in file_paths[-length(file_paths)]) {
   df <- readRDS(file)
   week_id <- str_remove(basename(file), "\\.rds$")
   clean_week_id <- str_remove(week_id, "^filtered_")
@@ -91,7 +90,7 @@ weekly_spreads <- list()
 # Sanity
 week_ids <- sort(names(weekly_results))
 
-for (i in 1:(length(week_ids) - 1)) {
+for (i in 1:(length(week_ids)) - 1) {
   current_week_id <- week_ids[i]
   next_week_id <- week_ids[i + 1]
   clean_next_id <- sub("^filtered_", "", next_week_id)
