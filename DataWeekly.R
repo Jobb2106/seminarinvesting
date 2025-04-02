@@ -10,7 +10,8 @@ library(lubridate)
 
 
 # Set folders and files -------------------------------------------------------------
-rds_folder <- "/Users/job/Desktop/RDS3"
+rds_folder <- "input/cleaned"
+#rds_folder <- "/Users/job/Desktop/RDS3"
 #rds_folder <- "/Users/job/Desktop/RDS"
 #rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
