@@ -4,6 +4,8 @@
 # Laad de data uit GitHub
 file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
+# dropped paths
+files <- list.files("data/setdifference", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
 # Libraries ---------------------------------------------------------------
 library(dplyr)
@@ -66,6 +68,31 @@ for (file in file_paths) {
   weekly_results[[week_id]] <- df_week_summary
 }
 
+# Calculate weekly returns for dropped data
+calculate_weekly_return <- function(df) {
+  df %>%
+    group_by(permno) %>%
+    summarise(
+      returns_week = mean(open_close_log_ret, na.rm = TRUE)
+    )
+}
+
+
+dropped_files <- list.files(dropped_data_path, pattern = "^dropped_data_.*\\.rds$", full.names = TRUE)
+
+for (file in dropped_files) {
+  df <- readRDS(file)
+  
+  if (!"returns_week" %in% colnames(df)) {
+    weekly_df <- calculate_weekly_return(df)
+    
+    # Overwrite with the new version including weekly return
+    saveRDS(weekly_df, file)
+    message("Updated weekly return in: ", basename(file))
+  }
+}
+
+
 
 # Portfolio Sorting -------------------------------------------------------
 portfolio_performance <- list()
@@ -73,19 +100,27 @@ weekly_spreads <- list()
 
 # Voor de zekerheid
 week_ids <- sort(names(weekly_results))
+dropped_data_path <- "data/setdifference/"
 
 for (i in 1:(length(week_ids) - 1)) {
   current_week <- weekly_results[[week_ids[i]]]
   next_week <- weekly_results[[week_ids[i + 1]]]
+  next_week_id <- sub("^filtered_", "", week_ids[i + 1])
   
-  joined <- add_next_week_return(current_week, next_week)
+  joined <- add_next_week_return(
+    current_week_df = current_week,
+    next_week_df = next_week,
+    week_id = next_week_id,
+    dropped_data_path = dropped_data_path
+  )
   
+  #Optional post-processing steps:
   # perf <- summarise_portfolios(joined)
-  #perf$week_id <- week_ids[i]
-  #portfolio_performance[[week_ids[i]]] <- perf
+  # perf$week_id <- week_ids[i]
+  # portfolio_performance[[week_ids[i]]] <- perf
   
- # spread <- calculate_weekly_spreads(joined, week_ids[i])
-  #weekly_spreads[[week_ids[i]]] <- spread
+  # spread <- calculate_weekly_spreads(joined, week_ids[i])
+  # weekly_spreads[[week_ids[i]]] <- spread
 }
 
 portfolio_summary_df <- bind_rows(portfolio_performance)
