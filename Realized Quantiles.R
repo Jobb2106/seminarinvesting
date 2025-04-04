@@ -11,7 +11,6 @@ library(stringr)
 # Import data --------------------------------------------------------------------
 file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 output_folder <- "data/weekly_filtered_RQ"
-#if (!dir.exists(output_folder)) dir.create(output_folder)
 
 
 # Parameters --------------------------------------------------------------
@@ -24,7 +23,7 @@ scaling_factor <- c^H
 process_with_rq <- function(file_path) {
   df <- readRDS(file_path)
   
-  #long format
+  # Long format
   df_long <- df %>%
     select(sym_root, date, returns_5m) %>%
     unnest_longer(returns_5m, values_to = "r_5m") %>%
