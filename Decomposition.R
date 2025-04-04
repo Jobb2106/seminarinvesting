@@ -34,7 +34,7 @@ calculate_RSJ_day <- function(df) {
   df %>%
     mutate(
       signed_jump = rv_pos - rv_neg,
-      RSJ_day = signed_jump / rv,
+      RSJ_day = signed_jump / (rv_pos + rv_neg),
       date = as.Date(date)
     )
 }
@@ -44,7 +44,7 @@ summarise_week <- function(df, week_id) {
     group_by(permno) %>%
     summarise(
       RSJ_week = mean(RSJ_day, na.rm = TRUE),
-      returns_week = mean(open_close_log_ret, na.rm = TRUE),
+      returns_week = sum(open_close_log_ret, na.rm = TRUE),
       .groups = "drop"
     ) %>%
     mutate(week_id = week_id)
@@ -65,7 +65,8 @@ for (file in file_paths) {
   # Berekeningen normaal
   df <- calculate_RSJ_day(df)
   df_week_summary <- summarise_week(df, week_id)
-  df_week_summary <- df_week_summary |> filter(!is.na(RSJ_week))
+  
+  # df_week_summary <- df_week_summary |> filter(!is.na(RSJ_week))
   df_week_summary$portfolio <- assign_portfolio(df_week_summary, "RSJ_week", n_portfolios = 5)
   weekly_results[[week_id]] <- df_week_summary
   
@@ -77,8 +78,8 @@ for (file in file_paths) {
     if (!"returns_week" %in% colnames(dropped_df)) {
       dropped_df <- calculate_RSJ_day(dropped_df)
       dropped_df <- summarise_week(dropped_df, clean_week_id)
-      dropped_results[[clean_week_id]] <- dropped_df
     }
+    dropped_results[[clean_week_id]] <- dropped_df
   }
 }
 
@@ -112,6 +113,8 @@ for (i in 1:(length(week_ids) - 1)) {
   joined$week_id <- week_ids[i]
   all_joined[[week_ids[i]]] <- joined
   
+  
+  
   # Optional post-processing steps:
   perf <- summarise_portfolios(joined)
   perf$week_id <- week_ids[i]
@@ -132,9 +135,9 @@ combined_df <- dplyr::bind_rows(all_joined)
 portfolio_summary <- combined_df %>%
   group_by(portfolio) %>%
   summarise(
-    avg_log_return = mean(next_week_return, na.rm = TRUE),
-    avg_simple_return = exp(avg_log_return) - 1,                       # geïnterpreteerde gewone return
+    total_log = sum(next_week_return, na.rm = TRUE),
     n = n(),
+    avg_log = total_log / n,
     .groups = "drop"
   )
 
