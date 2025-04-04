@@ -9,7 +9,7 @@ dropped_files <- list.files("data/setdifference", pattern = "^dropped_data_\\d{4
 
 # FFC4 factors
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
-  mutate(week = as.Date(week))
+  mutate(key = as.character(key))
 
 
 # Libraries ---------------------------------------------------------------
@@ -18,7 +18,7 @@ library(stringr)
 library(lmtest)
 library(sandwich)
 library(purrr)
-
+library(broom)
 
 # Negative/positive realized volatility -----------------------------------
 # Functions for RV calculations
@@ -61,7 +61,6 @@ dropped_results <- list()
 spread_data <- list()
 
 # Hierbij wil ik mijn officiele excuses aanbieden aan Jop die dit idee op het begin had. Het was een goed idee.
-# Bereken weekly_returns & RSJ voor elke week en bereken ook weekly_returns voor bedrijven die eruit vallen
 for (file in file_paths) {
   df <- readRDS(file)
   week_id <- str_remove(basename(file), "\\.rds$")
@@ -71,7 +70,7 @@ for (file in file_paths) {
   df <- calculate_RSJ_day(df)
   df_week_summary <- summarise_week(df, week_id)
   
-  # df_week_summary <- df_week_summary |> filter(!is.na(RSJ_week))
+  df_week_summary <- df_week_summary |> filter(!is.na(RSJ_week))
   df_week_summary$portfolio <- assign_portfolio(df_week_summary, "RSJ_week", n_portfolios = 5)
   weekly_results[[week_id]] <- df_week_summary
   
@@ -118,8 +117,7 @@ for (i in 1:(length(week_ids) - 1)) {
   joined$week_id <- week_ids[i]
   all_joined[[week_ids[i]]] <- joined
   
-  
-  
+
   # Optional post-processing steps:
   perf <- summarise_portfolios(joined)
   perf$week_id <- week_ids[i]
@@ -140,13 +138,9 @@ combined_df <- dplyr::bind_rows(all_joined)
 portfolio_summary <- combined_df %>%
   group_by(portfolio) %>%
   summarise(
-    total_log = sum(next_week_return, na.rm = TRUE),
-    n = n(),
-    avg_log = total_log / n,
+    mean_return = mean(next_week_return, na.rm = TRUE),
     .groups = "drop"
   )
-
-
 
 
 
@@ -159,14 +153,8 @@ portfolio_returns_weekly <- bind_rows(all_joined) %>%
   ) %>%
   mutate(clean_week_id = str_remove(week_id, "^filtered_"))
 
-ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
-  mutate(key = as.character(key))
-
 returns_with_factors <- portfolio_returns_weekly %>%
   left_join(ffc4_factors, by = c("clean_week_id" = "key"))
-
-library(sandwich)
-library(broom)
 
 ffc4_alpha_results <- returns_with_factors %>%
   group_by(portfolio) %>%
