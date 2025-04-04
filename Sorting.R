@@ -68,21 +68,14 @@ add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
 summarise_portfolios <- function(df) {
   portfolio_avg <- df %>%
     group_by(portfolio) %>%
-    summarise(
-      avg_next_week_return = mean(next_week_return, na.rm = TRUE),
-      n = n(),
-      .groups = "drop"
-    )
+    summarise(avg_return = mean(next_week_return, na.rm = TRUE), .groups = "drop")
   
-  high_ret <- portfolio_avg %>% filter(portfolio == 5) %>% pull(avg_next_week_return)
-  low_ret  <- portfolio_avg %>% filter(portfolio == 1) %>% pull(avg_next_week_return)
-  spread <- high_ret - low_ret
+  spread <- portfolio_avg$avg_return[portfolio_avg$portfolio == 5] -
+    portfolio_avg$avg_return[portfolio_avg$portfolio == 1]
   
-  tibble(
-    P1 = low_ret,
-    P5 = high_ret,
-    spread = spread
-  )
+  tibble(P1 = portfolio_avg$avg_return[portfolio_avg$portfolio == 1],
+         P5 = portfolio_avg$avg_return[portfolio_avg$portfolio == 5],
+         spread = spread)
 }
 
 
