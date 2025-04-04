@@ -37,14 +37,14 @@ files_by_week <- split(rds_files, week_ids)
 
 
 # Parameters for filtering ------------------------------------------------
-min_days <- 3 #good bad vol paper
+min_percent_days <- 0.8 #zelf bedacht
 min_price <- 5 #paper
 max_price <- 1000 #common
 min_n_obs <- 80 #(good bad volatility paper) staat er niet echt in
 
 
 # Stock universes per week ------------------------------------------------
-get_eligible_stocks_weekly <- function(file_paths, min_days, min_price, max_price, min_n_obs) {
+get_eligible_stocks_weekly <- function(file_paths, min_price, max_price, min_n_obs, min_percent_days) {
   if (length(file_paths) == 0) return(character(0))
   
   all_data <- map_dfr(file_paths, function(file) {
@@ -53,20 +53,33 @@ get_eligible_stocks_weekly <- function(file_paths, min_days, min_price, max_pric
       return(NULL)
     })})
   
-  filtered <- all_data %>%
-    filter(!is.na(close_crsp),
-           close_crsp >= min_price,
-           close_crsp <= max_price,
-           n_obs >= min_n_obs)
-  
-  stock_counts <- filtered %>%
+  # Count trading days per stock
+  trading_days_per_stock <- all_data %>%
     group_by(sym_root) %>%
-    summarise(valid_days = n(), .groups = "drop") %>%
-    filter(valid_days >= min_days)
+    summarise(days_available = n(), .groups = "drop")
   
-  return(stock_counts$sym_root)
+  # Find max number of trading days across all stocks this week
+  max_days <- max(trading_days_per_stock$days_available, na.rm = TRUE)
+  required_days <- floor(min_percent_days * max_days)
+  
+  # Count number of available days per stock
+  enough_data <- trading_days_per_stock %>%
+    filter(days_available >= required_days)
+  
+  failing_stocks <- all_data %>%
+    filter(sym_root %in% enough_data$sym_root) %>%
+    filter(
+      is.na(close_crsp) |
+        close_crsp < min_price |
+        close_crsp > max_price |
+        n_obs < min_n_obs
+    ) %>%
+    pull(sym_root) %>%
+    unique()
+  
+  eligible <- setdiff(enough_data$sym_root, failing_stocks)
+  return(eligible)
 }
-
 
 # Build universes for each week---------------------------------------
 week_list <- names(files_by_week)
@@ -82,10 +95,10 @@ for (i in 1:(length(week_list) - 1)) {
   
   eligible <- get_eligible_stocks_weekly(
     file_paths,
-    min_days = min_days,
     min_price = min_price,
     max_price = max_price,
-    min_n_obs = min_n_obs
+    min_n_obs = min_n_obs,
+    min_percent_days = min_percent_days
   )
 
   universe_by_week[[next_week]] <- eligible
@@ -98,7 +111,15 @@ for (i in 1:(length(week_list) - 1)) {
     }, error = function(e) NULL)
   })
   
-  df_filtered <- df_week %>% filter(sym_root %in% eligible)
+  df_filtered <- df_week %>%
+    filter(sym_root %in% eligible) %>%
+    filter(
+      !is.na(close_crsp),
+      close_crsp >= min_price,
+      close_crsp <= max_price,
+      n_obs >= min_n_obs
+    )
+  
   saveRDS(df_filtered, paste0("data/subset/filtered_", next_week, ".rds"))
   
   # Dropped stocks (present last week, not this week)
