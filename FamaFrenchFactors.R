@@ -21,7 +21,7 @@ df_mm <- tidyfinance::download_data_factors_ff("factors_ff_momentum_factor_daily
 
 df_ffc4 <- left_join(df_ff3, df_mm, by = "week")
 
-
+df_ffc4$key <- week_key(df_ffc4$week)
 
 # Save to Git -------------------------------------------------------------
 saveRDS(df_ffc4, "data/metrics/FFC4.rds")
