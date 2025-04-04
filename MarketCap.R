@@ -45,8 +45,25 @@ for (file in test_files) {
 }
 
 
+<<<<<<< HEAD
 
 # Save simpel -------------------------------------------------------------
 saveRDS(market_cap, "data/metrics/MarketCap.rds")
 
 
+=======
+# Calculate monthly market cap --------------------------------------------
+# Add a column to the dataframe with the market cap 
+df$market_cap <- abs(df$PRC) * df$SHROUT / 1000  # in millions USD
+
+# Group the dataframe by date 
+df_grouped <- df %>%
+  ungroup() %>%
+  arrange(date) %>%       # <-- this sorts the data
+  group_by(date)
+
+
+# Save --------------------------------------------------------------------
+saveRDS(df_grouped, "data/metrics/MarketCap.rds")
+
+>>>>>>> b795d45c49f0914bf766ea7dfdce7766b7ea2c0f
