@@ -38,7 +38,7 @@ for (i in 1:(length(ajr_by_week) - 1)) {
   )
   
   # Filter to only jump stocks and compute JRNegative
-  df_jrn <- df_this %>%
+  df_jrn <- df_next %>%
     filter(sym_root %in% ajr_df$sym_root) %>%
     mutate(
       rv_neg = map_dbl(returns_5m, ~ sum((.x[.x < 0])^2)),
@@ -53,7 +53,7 @@ for (i in 1:(length(ajr_by_week) - 1)) {
   # Add next week returns
   df_next_week <- df_next %>% 
     group_by(permno) %>% 
-    summarise(returns_week = mean(open_close_log_ret, na.rm = TRUE), .groups = "drop")
+    summarise(returns_week = sum(open_close_log_ret, na.rm = TRUE), .groups = "drop")
   
   df_jrn <- add_next_week_return(df_jrn, df_next_week, df_dropped)
   
