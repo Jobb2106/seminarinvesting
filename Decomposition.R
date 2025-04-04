@@ -7,6 +7,11 @@ file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rd
 # dropped paths
 dropped_files <- list.files("data/setdifference", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
+# FFC4 factors
+ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
+  mutate(week = as.Date(week))
+
+
 # Libraries ---------------------------------------------------------------
 library(dplyr)
 library(stringr)
@@ -142,4 +147,33 @@ portfolio_summary <- combined_df %>%
   )
 
 
+
+
+
+# FFC4 --------------------------------------------------------------------
+portfolio_returns_weekly <- bind_rows(all_joined) %>%
+  group_by(week_id, portfolio) %>%
+  summarise(
+    avg_log_return = mean(next_week_return, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(clean_week_id = str_remove(week_id, "^filtered_"))
+
+ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
+  mutate(key = as.character(key))
+
+returns_with_factors <- portfolio_returns_weekly %>%
+  left_join(ffc4_factors, by = c("clean_week_id" = "key"))
+
+library(sandwich)
+library(broom)
+
+ffc4_alpha_results <- returns_with_factors %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(avg_log_return ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
 
