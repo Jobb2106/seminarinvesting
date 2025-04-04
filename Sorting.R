@@ -7,6 +7,7 @@
 # Laad de data uit GitHub
 file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
+
 # Libraries ---------------------------------------------------------------
 library(tidyverse)
 library(RSQLite)

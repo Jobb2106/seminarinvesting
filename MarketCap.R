@@ -2,12 +2,18 @@
 # NOTE: To run this script, up until now, fix the path. This can probably be improved by Job or Thor by uploading it to Git I guess? 
 # You can donwload the file from Jop's WRDS account. It has query id 9705291
 
+
+# Import packages ---------------------------------------------------------
 library(readr)
 library(dplyr)
 
-path = "/Users/Timo/Downloads/crsp_data.csv"
-df <- read_csv(path)
 
+# Import data -------------------------------------------------------------
+df <- read_csv("input/crsp_data.csv")
+write.csv(test, "input/crsp_data.csv",row.names = FALSE)
+
+
+# Calculate monthly market cap --------------------------------------------
 # Add a column to the dataframe with the market cap 
 df$market_cap <- abs(df$PRC) * df$SHROUT / 1000  # in millions USD
 
@@ -17,5 +23,7 @@ df_grouped <- df %>%
   arrange(date) %>%       # <-- this sorts the data
   group_by(date)
 
-# Perhaps add the following code here to write this data back into a CSV file? (of course change the path) 
-# write_csv(df_grouped, "/Users/Timo/Downloads/df_grouped.csv")
+
+# Save --------------------------------------------------------------------
+saveRDS(df_grouped, file.path("/data/metrics/", "MarketCap.rds"))
+
