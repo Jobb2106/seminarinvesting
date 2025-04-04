@@ -54,7 +54,6 @@ AJR <- function(RV, BPV, QPV, M, mu) {
 # Process weeks -----------------------------------------------------------
 process_weekly_ajr <- function(file_path) {
   df <- readRDS(file_path)
-  
   week_id <- str_extract(basename(file_path), "20\\d{2}-W\\d{2}")
   
   df_ajr <- df %>%
@@ -72,11 +71,16 @@ process_weekly_ajr <- function(file_path) {
       ajr_mean = mean(ajr, na.rm = TRUE),
       n_days = n(),
       .groups = "drop"
-    )
+    ) %>%
+    mutate(
+      ajr_median = median(ajr_sum, na.rm = TRUE),
+      portfolio = if_else(ajr_sum < ajr_median, "jump", "continuous")
+    ) %>%
+    select(-ajr_median)  # optional: remove if not needed
   
-  # Save
+  # Save result
   saveRDS(df_ajr, file.path(output_folder, paste0("ajr_", week_id, ".rds")))
-  cat("Saved AJR for", week_id, "\n")
+  cat("Saved AJR + portfolios for", week_id, "\n")
 }
 
 
