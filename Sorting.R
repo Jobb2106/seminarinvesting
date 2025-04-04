@@ -21,19 +21,21 @@ library(dplyr)
 
 # Portfolio Sorting ----------------------------------------------------
 assign_portfolio <- function(data, sorting_variable, n_portfolios) {
-  breakpoints <- data |>
-    pull({{ sorting_variable }}) |>
-    quantile(
-      probs = seq(0, 1, length.out = n_portfolios + 1),
-      na.rm = TRUE,
-      names = FALSE
-    )
+  sorting_vec <- data |> pull({{ sorting_variable }})
   
-  data <- data |>
-    mutate(portfolio = findInterval(data[[ sorting_variable ]], breakpoints, all.inside = TRUE))
+  breakpoints <- quantile(
+    sorting_vec,
+    probs = seq(0, 1, length.out = n_portfolios + 1),
+    na.rm = TRUE,
+    names = FALSE
+  )
+  
+  data <- data |> 
+    mutate(portfolio = findInterval(sorting_vec, breakpoints, all.inside = TRUE))
   
   return(data$portfolio)
 }
+
 
 # Return for next week ----------------------------------------------------
 # Including the next week return for the dropped companies

@@ -52,7 +52,6 @@ summarise_week <- function(df, week_id) {
 
 # Calculations ------------------------------------------------------------
 weekly_results <- list()
-portfolio_performance <- list()
 dropped_results <- list()
 spread_data <- list()
 
@@ -66,6 +65,7 @@ for (file in file_paths) {
   # Berekeningen normaal
   df <- calculate_RSJ_day(df)
   df_week_summary <- summarise_week(df, week_id)
+  df_week_summary <- df_week_summary |> filter(!is.na(RSJ_week))
   df_week_summary$portfolio <- assign_portfolio(df_week_summary, "RSJ_week", n_portfolios = 5)
   weekly_results[[week_id]] <- df_week_summary
   
@@ -86,6 +86,7 @@ for (file in file_paths) {
 # Portfolio Sorting -------------------------------------------------------
 portfolio_performance <- list()
 weekly_spreads <- list()
+all_joined <- list()
 
 # Sanity
 week_ids <- sort(names(weekly_results))
@@ -106,6 +107,11 @@ for (i in 1:(length(week_ids) - 1)) {
     dropped_df = dropped_results[[clean_next_id]]
   )
   
+  # >>> FILTER OUT NA values in next_week_return <<<
+  joined <- joined[!is.na(joined$next_week_return), ]
+  joined$week_id <- week_ids[i]
+  all_joined[[week_ids[i]]] <- joined
+  
   # Optional post-processing steps:
   perf <- summarise_portfolios(joined)
   perf$week_id <- week_ids[i]
@@ -119,6 +125,18 @@ for (i in 1:(length(week_ids) - 1)) {
 performance_panel <- bind_rows(portfolio_performance)
 model <- lm(spread ~ 1, data = performance_panel)
 coeftest(model, vcov = NeweyWest)
+
+# Hier nog ff goed naar kijken
+combined_df <- dplyr::bind_rows(all_joined)
+
+portfolio_summary <- combined_df %>%
+  group_by(portfolio) %>%
+  summarise(
+    avg_log_return = mean(next_week_return, na.rm = TRUE),
+    avg_simple_return = exp(avg_log_return) - 1,                       # geïnterpreteerde gewone return
+    n = n(),
+    .groups = "drop"
+  )
 
 
 
