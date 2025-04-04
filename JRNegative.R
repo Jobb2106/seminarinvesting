@@ -80,3 +80,4 @@ for (i in 1:(length(ajr_by_week) - 1)) {
 final_results <- bind_rows(all_portfolios)
 saveRDS(final_results, "data/metrics/jrn_portfolio_performance.rds")
 
+# to add: continous gesorteert voor jrnegative

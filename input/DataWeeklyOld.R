@@ -11,6 +11,8 @@ library(lubridate)
 
 # Set folders and files -------------------------------------------------------------
 rds_folder <- "input/cleaned"
+#rds_folder <- "/Users/job/Desktop/RDS"
+#rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
 
@@ -27,7 +29,6 @@ week_key <- function(date) {
   shifted_date <- as.Date(date) - days(1)
   paste0(isoyear(shifted_date), "-W", sprintf("%02d", isoweek(shifted_date)))
 }
-
 
 # Group files by week -----------------------------------------------------
 file_dates <- as.Date(sapply(rds_files, extract_date))
@@ -48,31 +49,22 @@ get_eligible_stocks_weekly <- function(file_paths, min_days, min_price, max_pric
   
   all_data <- map_dfr(file_paths, function(file) {
     tryCatch(readRDS(file), error = function(e) {
-      cat("Skipping file:", file, "due to error:", conditionMessage(e), "\n")
+      cat("Skipping file:", path, "due to error:", conditionMessage(e), "\n")
       return(NULL)
-    })
-  })
+    })})
   
-  # Filter for per-day quality constraints
-  valid_data <- all_data %>%
-    filter(
-      !is.na(close_crsp),
-      close_crsp >= min_price,
-      close_crsp <= max_price,
-      n_obs >= min_n_obs
-    )
+  filtered <- all_data %>%
+    filter(!is.na(close_crsp),
+           close_crsp >= min_price,
+           close_crsp <= max_price,
+           n_obs >= min_n_obs)
   
-  # Count number of valid days each stock appears
-  stock_day_counts <- valid_data %>%
-    group_by(permno) %>%
-    summarise(n_valid_days = n_distinct(date), .groups = "drop")
+  stock_counts <- filtered %>%
+    group_by(sym_root) %>%
+    summarise(valid_days = n(), .groups = "drop") %>%
+    filter(valid_days >= min_days)
   
-  # Only keep stocks with enough valid days
-  eligible_stocks <- stock_day_counts %>%
-    filter(n_valid_days >= min_days) %>%
-    pull(permno)
-  
-  return(eligible_stocks)
+  return(stock_counts$sym_root)
 }
 
 
@@ -95,7 +87,7 @@ for (i in 1:(length(week_list) - 1)) {
     max_price = max_price,
     min_n_obs = min_n_obs
   )
-
+  
   universe_by_week[[next_week]] <- eligible
   
   # Save the filtered data for next_week
@@ -106,45 +98,16 @@ for (i in 1:(length(week_list) - 1)) {
     }, error = function(e) NULL)
   })
   
-  total_days <- df_week %>%
-    pull(date) %>%
-    unique() %>%
-    length()
-  
-  # Calculate required number of valid days per stock (based on 80% threshold)
-  required_days <- floor(0.8 * total_days)
-  
-  # Only keep eligible stocks that appear on enough days in df_week
-  valid_counts <- df_week %>%
-    filter(permno %in% eligible) %>%
-    filter(
-      !is.na(close_crsp),
-      close_crsp >= min_price,
-      close_crsp <= max_price,
-      n_obs >= min_n_obs
-    ) %>%
-    group_by(permno) %>%
-    summarise(n_days = n_distinct(date), .groups = "drop") %>%
-    filter(n_days >= required_days)
-  
-  df_filtered <- df_week %>%
-    filter(
-      permno %in% valid_counts$permno,
-      !is.na(close_crsp),
-      close_crsp >= min_price,
-      close_crsp <= max_price,
-      n_obs >= min_n_obs
-    )
-  
+  df_filtered <- df_week %>% filter(sym_root %in% eligible)
   saveRDS(df_filtered, paste0("data/subset/filtered_", next_week, ".rds"))
   
   # Dropped stocks (present last week, not this week)
   if (!is.null(universe_by_week[[current_week]])) {
-    dropped_stocks <- setdiff(universe_by_week[[current_week]], universe_by_week[[next_week]])
+    dropped_stocks <- setdiff(universe_by_week[[current_week]], eligible)
     
     if (length(dropped_stocks) > 0) {
       # Save data of dropped stocks
-      dropped_data <- df_week %>% filter(permno %in% dropped_stocks)
+      dropped_data <- df_week %>% filter(sym_root %in% dropped_stocks)
       saveRDS(dropped_data, paste0("data/setdifference/dropped_data_", next_week, ".rds"))
     }
   }
