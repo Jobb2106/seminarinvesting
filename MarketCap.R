@@ -10,11 +10,6 @@ library(dplyr)
 df <- read_csv("input/crsp_data.csv")
 
 
-# Import data -------------------------------------------------------------
-input = "input/crsp_data.csv"
-df <- read_csv(path)
-
-
 # Calculate monthly market cap --------------------------------------------
 # Add a column to the dataframe with the market cap 
 df$market_cap <- abs(df$PRC) * df$SHROUT / 1000  # in millions USD
@@ -27,5 +22,5 @@ df_grouped <- df %>%
 
 
 # Save --------------------------------------------------------------------
-saveRDS(df_grouped, file.path("/data/metrics/", "MarketCap.rds"))
+saveRDS(df_grouped, "data/metrics/MarketCap.rds")
 
