@@ -21,7 +21,7 @@ filename <- file.choose()
 test <- readRDS(filename)
 
 
-df_debug <- `filtered_2013-W07-v12`
+df_debug <- `filtered_2013-W07-v20`
 
 df_debug %>%
   group_by(permno) %>%

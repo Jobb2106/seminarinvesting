@@ -11,8 +11,6 @@ library(lubridate)
 
 # Set folders and files -------------------------------------------------------------
 rds_folder <- "input/cleaned"
-#rds_folder <- "/Users/job/Desktop/RDS"
-#rds_folder <- "/Users/thorhogerbrugge/Desktop/RDS"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
 
@@ -30,6 +28,7 @@ week_key <- function(date) {
   paste0(isoyear(shifted_date), "-W", sprintf("%02d", isoweek(shifted_date)))
 }
 
+
 # Group files by week -----------------------------------------------------
 file_dates <- as.Date(sapply(rds_files, extract_date))
 week_ids <- week_key(file_dates)
@@ -37,49 +36,44 @@ files_by_week <- split(rds_files, week_ids)
 
 
 # Parameters for filtering ------------------------------------------------
-min_percent_days <- 0.8 #zelf bedacht
 min_price <- 5 #paper
 max_price <- 1000 #common
 min_n_obs <- 80 #(good bad volatility paper) staat er niet echt in
 
 
 # Stock universes per week ------------------------------------------------
-get_eligible_stocks_weekly <- function(file_paths, min_price, max_price, min_n_obs, min_percent_days) {
+get_eligible_stocks_weekly <- function(file_paths, min_price, max_price, min_n_obs) {
   if (length(file_paths) == 0) return(character(0))
   
   all_data <- map_dfr(file_paths, function(file) {
     tryCatch(readRDS(file), error = function(e) {
-      cat("Skipping file:", path, "due to error:", conditionMessage(e), "\n")
+      cat("Skipping file:", file, "due to error:", conditionMessage(e), "\n")
       return(NULL)
-    })})
+    })
+  })
   
-  # Count trading days per stock
-  trading_days_per_stock <- all_data %>%
-    group_by(sym_root) %>%
-    summarise(days_available = n(), .groups = "drop")
-  
-  # Find max number of trading days across all stocks this week
-  max_days <- max(trading_days_per_stock$days_available, na.rm = TRUE)
-  required_days <- floor(min_percent_days * max_days)
-  
-  # Count number of available days per stock
-  enough_data <- trading_days_per_stock %>%
-    filter(days_available >= required_days)
-  
-  failing_stocks <- all_data %>%
-    filter(sym_root %in% enough_data$sym_root) %>%
+  # Filter for per-day quality constraints
+  valid_data <- all_data %>%
     filter(
-      is.na(close_crsp) |
-        close_crsp < min_price |
-        close_crsp > max_price |
-        n_obs < min_n_obs
-    ) %>%
-    pull(sym_root) %>%
-    unique()
+      !is.na(close_crsp),
+      close_crsp >= min_price,
+      close_crsp <= max_price,
+      n_obs >= min_n_obs
+    )
   
-  eligible <- setdiff(enough_data$sym_root, failing_stocks)
-  return(eligible)
+  # Count number of valid days each stock appears
+  stock_day_counts <- valid_data %>%
+    group_by(sym_root) %>%
+    summarise(n_valid_days = n_distinct(date), .groups = "drop")
+  
+  # Only keep stocks with enough valid days
+  eligible_stocks <- stock_day_counts %>%
+    filter(n_valid_days >= min_days) %>%
+    pull(sym_root)
+  
+  return(eligible_stocks)
 }
+
 
 # Build universes for each week---------------------------------------
 week_list <- names(files_by_week)
@@ -97,8 +91,7 @@ for (i in 1:(length(week_list) - 1)) {
     file_paths,
     min_price = min_price,
     max_price = max_price,
-    min_n_obs = min_n_obs,
-    min_percent_days = min_percent_days
+    min_n_obs = min_n_obs
   )
 
   universe_by_week[[next_week]] <- eligible
@@ -111,9 +104,30 @@ for (i in 1:(length(week_list) - 1)) {
     }, error = function(e) NULL)
   })
   
-  df_filtered <- df_week %>%
+  total_days <- df_week %>%
+    pull(date) %>%
+    unique() %>%
+    length()
+  
+  # Calculate required number of valid days per stock (based on 80% threshold)
+  required_days <- floor(0.8 * total_days)
+  
+  # Only keep eligible stocks that appear on enough days in df_week
+  valid_counts <- df_week %>%
     filter(sym_root %in% eligible) %>%
     filter(
+      !is.na(close_crsp),
+      close_crsp >= min_price,
+      close_crsp <= max_price,
+      n_obs >= min_n_obs
+    ) %>%
+    group_by(sym_root) %>%
+    summarise(n_days = n_distinct(date), .groups = "drop") %>%
+    filter(n_days >= required_days)
+  
+  df_filtered <- df_week %>%
+    filter(
+      sym_root %in% valid_counts$sym_root,
       !is.na(close_crsp),
       close_crsp >= min_price,
       close_crsp <= max_price,
@@ -133,6 +147,7 @@ for (i in 1:(length(week_list) - 1)) {
     }
   }
 }
+
 
 #if (!dir.exists("data/weekly_filtered")) dir.create("data/weekly_filtered")
 #if (!dir.exists("data/setdifference")) dir.create("data/setdifference")
