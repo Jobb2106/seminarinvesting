@@ -132,7 +132,7 @@ performance_panel <- bind_rows(portfolio_performance)
 model <- lm(spread ~ 1, data = performance_panel)
 coeftest(model, vcov = NeweyWest)
 
-# Hier nog ff goed naar kijken
+# Hier nog ff goed naar kijken, want heb gevoel dat het niet klopt
 combined_df <- dplyr::bind_rows(all_joined)
 
 portfolio_summary <- combined_df %>%
