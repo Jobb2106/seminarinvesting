@@ -13,6 +13,11 @@ df <- read_csv("input/crsp_data.csv")
 write.csv(test, "input/crsp_data.csv",row.names = FALSE)
 
 
+# Import data -------------------------------------------------------------
+input = "input/crsp_data.csv"
+df <- read_csv(path)
+
+
 # Calculate monthly market cap --------------------------------------------
 # Add a column to the dataframe with the market cap 
 df$market_cap <- abs(df$PRC) * df$SHROUT / 1000  # in millions USD
