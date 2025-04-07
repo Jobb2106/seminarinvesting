@@ -11,9 +11,10 @@ market_cap <- read_csv("input/crsp_data.csv") %>%
   rename(permno = PERMNO) %>%
   mutate(
     date = as.Date(date),
-    market_cap = abs(PRC) * SHROUT / 1000  # in miljoenen USD
+    market_cap = abs(PRC) * SHROUT / 1000,  # in miljoenen USD
+    week_id = format(as.Date(date), "%Y-W%V")
   ) %>%
-  select(permno, date, market_cap) 
+  select(permno, date, market_cap, week_id) 
 
 
 # Save --------------------------------------------------------------------

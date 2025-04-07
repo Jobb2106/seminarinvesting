@@ -30,6 +30,7 @@ assign_portfolio <- function(data, sorting_variable, n_portfolios) {
     names = FALSE
   )
   
+  # Maak de portfolio-indeling en retourneer deze vector
   data <- data |> 
     mutate(portfolio = findInterval(sorting_vec, breakpoints, all.inside = TRUE))
   
@@ -37,19 +38,19 @@ assign_portfolio <- function(data, sorting_variable, n_portfolios) {
 }
 
 
-# Return for next week ----------------------------------------------------
-# Including the next week return for the dropped companies
+
+# Add next week return ----------------------------------------------------
 add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
-  # Step 1: Pull returns from next_week_df
+  # Stap 1: Haal returns op uit next_week_df
   next_returns <- next_week_df %>%
     select(permno, returns_week) %>%
     rename(next_week_return = returns_week)
   
-  # Step 2: Left join to current week data
+  # Stap 2: Left join met de data van de huidige week
   merged_df <- current_week_df %>%
     left_join(next_returns, by = "permno")
   
-  # Step 3: If any returns are missing, try filling from dropped_df
+  # Stap 3: Indien er returns ontbreken, vul in met data uit dropped_df
   if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
     fallback_returns <- dropped_df %>%
       select(permno, returns_week) %>%
@@ -64,20 +65,27 @@ add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
   return(merged_df)
 }
 
-# Performance Evaluation --------------------------------------------------
+# Equally weighted returns ------------------------------------------------
 summarise_portfolios <- function(df) {
-  portfolio_avg <- df %>%
+  df %>%
     group_by(portfolio) %>%
-    summarise(avg_return = mean(next_week_return, na.rm = TRUE), .groups = "drop")
-  
-  spread <- portfolio_avg$avg_return[portfolio_avg$portfolio == 5] -
-    portfolio_avg$avg_return[portfolio_avg$portfolio == 1]
-  
-  tibble(P1 = portfolio_avg$avg_return[portfolio_avg$portfolio == 1],
-         P5 = portfolio_avg$avg_return[portfolio_avg$portfolio == 5],
-         spread = spread)
+    summarise(
+      avg_return = mean(next_week_return, na.rm = TRUE),
+      .groups = "drop"
+    )
 }
 
+
+# Value Weighted Returns --------------------------------------------------
+summarise_portfolios_value_weighted <- function(df) {
+  df %>%
+    filter(!is.na(market_cap)) %>%  # Alleen rijen met market_cap meenemen
+    group_by(portfolio) %>%
+    summarise(
+      avg_return = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
 
 # Performance Evaluation --------------------------------------------------
 
