@@ -33,9 +33,29 @@ for (var in independent_vars) {
   )
 }
 
+# Run the full model with all variables
+full_model <- estimate_fama_macbeth(
+  data = data_fama_macbeth,
+  model = "ret ~ RSJ + beta + MC + BM + REV",
+  vcov = "newey-west"
+)
 
+# Define the other variables (excluding RSJ)
+other_vars <- c("beta", "MC", "BM", "REV")
 
-# Multiple regressions 
+# Initialize a list to store RSJ + one-variable models
+rsj_plus_models <- list()
+
+# Loop over each of the other variables to run RSJ + X regression
+for (var in other_vars) {
+  formula_str <- paste("ret ~ RSJ +", var)
+  rsj_plus_models[[var]] <- estimate_fama_macbeth(
+    data = data_fama_macbeth,
+    model = formula_str,
+    vcov = "newey-west"
+  )
+}
+
 
 
 
