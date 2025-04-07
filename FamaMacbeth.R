@@ -16,6 +16,29 @@ estimate_fama_macbeth(
 # Once we have these variables and put them in a data frame, we simply plug this in the above function and define models 
 
 
+# Single variable regressions are performed below: 
+independent_vars <- c("RSJ", "beta", "MC", "BM", "REV")
+results <- list()
+
+# Loop through each independent variable
+for (var in independent_vars) {
+  # Construct the model formula as a string
+  formula_str <- paste("return ~", var) # <------- We need to replace return with correct name
+  
+  # Run the Fama-MacBeth regression using tidyfinance
+  results[[var]] <- estimate_fama_macbeth(
+    data = data_fama_macbeth,
+    model = formula_str,
+    vcov = "newey-west"
+  )
+}
+
+
+
+# Multiple regressions 
+
+
+
 
 
 
