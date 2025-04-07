@@ -68,7 +68,12 @@ add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
 # Equally weighted returns ------------------------------------------------
 summarise_portfolios <- function(df) {
   df %>%
-    group_by(portfolio) %>%
+    pivot_longer(
+      cols = c(RSJ_portfolio, RES_portfolio),   # Pivot the two portfolio columns into one
+      names_to = "sort_type", 
+      values_to = "portfolio"
+    ) %>%
+    group_by(sort_type, portfolio) %>%
     summarise(
       avg_return = mean(next_week_return, na.rm = TRUE),
       .groups = "drop"
@@ -79,8 +84,12 @@ summarise_portfolios <- function(df) {
 # Value Weighted Returns --------------------------------------------------
 summarise_portfolios_value_weighted <- function(df) {
   df %>%
-    filter(!is.na(market_cap)) %>%  # Alleen rijen met market_cap meenemen
-    group_by(portfolio) %>%
+    pivot_longer(
+      cols = c(RSJ_portfolio, RES_portfolio),
+      names_to = "sort_type", 
+      values_to = "portfolio"
+    ) %>%
+    group_by(sort_type, portfolio) %>%
     summarise(
       avg_return = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
       .groups = "drop"
