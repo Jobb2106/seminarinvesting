@@ -24,7 +24,7 @@ library(purrr)
 library(broom)
 library(data.table)
 
-# Negative/positive realized volatility -----------------------------------
+# RSJ/RES calculations -----------------------------------
 # Functions for RV calculations
 rv_negative <- function(returns) {
   neg_returns <- returns[returns < 0]
@@ -48,42 +48,73 @@ calculate_RSJ_day <- function(df) {
     )
 }
 
+calculate_RES_day <- function(df, p = 0.05, scaling_factor = 78^0.5) {
+  df %>%
+    rowwise() %>%  # Process each row individually
+    mutate(
+      ES_p = {
+        # Unlist the 5-minute returns for this row
+        r_5m <- unlist(returns_5m)
+        # Compute the quantile at probability p
+        q_p <- quantile(r_5m, probs = p, na.rm = TRUE)
+        # Compute the mean of returns below or equal to the quantile
+        mean(r_5m[r_5m <= q_p], na.rm = TRUE)
+      },
+      RES = scaling_factor * ES_p
+    ) %>%
+    ungroup()
+}
+
+
 summarise_week <- function(df, week_id) {
   df %>%
     group_by(permno) %>%
     summarise(
       RSJ_week = mean(RSJ_day, na.rm = TRUE),
       returns_week = sum(open_close_log_ret, na.rm = TRUE),
+      RES_week = sqrt(n()) * sum(RES, na.rm = TRUE),
       .groups = "drop"
     ) %>%
     mutate(week_id = week_id)
 }
 
+test <- readRDS(file_paths[1])
+test <- calculate_RES_day(test)
+test <- calculate_RSJ_day(test)
+test <- summarise_week(test, "filtered_2013-W02")
+
 # Calculations ------------------------------------------------------------
 weekly_results <- list()
 dropped_results <- list()
-spread_data <- list()
-market_cap_tracker <- list()
 
-# Deze code voor de zekerheid nog controleren, maar lijkt me goed
 for (file in file_paths) {
   df <- readRDS(file)
   week_id <- str_remove(basename(file), "\\.rds$")
   clean_week_id <- str_remove(week_id, "^filtered_")
   
-  # Berekeningen normaal
+  # Normal calculations: first compute RSJ_day and RES
   df <- calculate_RSJ_day(df)
+  df <- calculate_RES_day(df)  
+  
+  # Summarise weekly values (this aggregates RSJ_day, returns, and RES into weekly data)
   df_week_summary <- summarise_week(df, week_id)
   df_week_summary <- df_week_summary %>% filter(!is.na(RSJ_week))
-  df_week_summary$portfolio <- assign_portfolio(df_week_summary, "RSJ_week", n_portfolios = 5)
+  
+  # Assign portfolios for both RSJ and RES sorts:
+  df_week_summary$RSJ_portfolio <- df_week_summary %>%
+    mutate(
+      RSJ_portfolio = assign_portfolio(., sorting_variable = "RSJ_week", n_portfolios = 5),
+      RES_portfolio = assign_portfolio(., sorting_variable = "RES_week", n_portfolios = 5)
+    )
+  
   weekly_results[[week_id]] <- df_week_summary
   
-  # Berekeningen dropped
-  dropped_file <- file.path("data/setdifference", paste0("dropped_data_", clean_week_id, ".rds"))
+  # Process dropped data if exists
   if (file.exists(dropped_file)) {
     dropped_df <- readRDS(dropped_file)
     if (!"returns_week" %in% colnames(dropped_df)) {
       dropped_df <- calculate_RSJ_day(dropped_df)
+      dropped_df <- calculate_RES_day(dropped_df)  # <-- add this call
       dropped_df <- summarise_week(dropped_df, clean_week_id)
     }
     dropped_results[[clean_week_id]] <- dropped_df

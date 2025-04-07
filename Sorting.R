@@ -21,7 +21,7 @@ library(dplyr)
 
 # Portfolio Sorting ----------------------------------------------------
 assign_portfolio <- function(data, sorting_variable, n_portfolios) {
-  sorting_vec <- data |> pull({{ sorting_variable }})
+  sorting_vec <- as.numeric(data |> pull({{ sorting_variable }}))
   
   breakpoints <- quantile(
     sorting_vec,
