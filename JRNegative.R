@@ -11,72 +11,86 @@ library(stringr)
 ajr_files <- list.files("data/metrics/weekly_ajr", pattern = "^ajr_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 ajr_by_week <- setNames(ajr_files, str_extract(basename(ajr_files), "\\d{4}-W\\d{2}"))
 mu <- sqrt(2 / pi)
-all_portfolios <- list()
-
+types <- c("jump", "continuous") 
 
 # Calculate, sort and test --------------------------------------------------------
-for (i in 1:(length(ajr_by_week) - 1)) {
-  this_week <- names(ajr_by_week)[i]
-  next_week <- names(ajr_by_week)[i + 1]
-  cat("Processing", this_week, "→", next_week, "\n")
+for (type in types) {
+  cat("Processing type:", type, "\n")
+  all_portfolios <- list()
+
+  for (i in 1:(length(ajr_by_week) - 1)) {
+    this_week <- names(ajr_by_week)[i]
+    next_week <- names(ajr_by_week)[i + 1]
+    cat("Processing", this_week, "→", next_week, "\n")
+   
+    # Load jump-driven stocks
+    ajr_df <- readRDS(ajr_by_week[[this_week]]) %>% filter(portfolio == type)
   
-  # Load jump-driven stocks
-  ajr_df <- readRDS(ajr_by_week[[this_week]]) %>% filter(portfolio == "jump")
+    # Load this and next week's data
+    df_this <- readRDS(paste0("data/subset/filtered_", this_week, ".rds"))
+    df_next <- readRDS(paste0("data/subset/filtered_", next_week, ".rds"))
   
-  # Load next week data
-  df_next <- readRDS(paste0("data/subset/filtered_", next_week, ".rds"))
-  df_dropped <- tryCatch(
-    readRDS(paste0("data/setdifference/dropped_data_", next_week, ".rds")),
-    error = function(e) NULL
-  )
-  
-  # Load this week data
-  df_this <- readRDS(paste0("data/subset/filtered_", this_week, ".rds"))
-  df_this_dropped <- tryCatch(
-    readRDS(paste0("data/setdifference/dropped_data_", this_week, ".rds")),
-    error = function(e) NULL
-  )
-  
-  # Filter to only jump stocks and compute JRNegative
-  df_jrn <- df_next %>%
-    filter(sym_root %in% ajr_df$sym_root) %>%
-    mutate(
-      rv_neg = map_dbl(returns_5m, ~ sum((.x[.x < 0])^2)),
-      bpv_neg = map_dbl(returns_5m, ~ sum(abs(.x)[-1] * abs(.x)[-length(.x)] * (.x[-1] < 0))),
-      jv_neg = pmax(rv_neg - mu^(-2) * bpv_neg, 0),
-      jr_neg = jv_neg / rv_neg
-    ) %>%
-    filter(!is.na(jr_neg), is.finite(jr_neg)) %>%
-    group_by(permno, sym_root) %>%
-    summarise(jr_neg = mean(jr_neg), .groups = "drop")
-  
-  # Add next week returns
-  df_next_week <- df_next %>% 
-    group_by(permno) %>% 
-    summarise(returns_week = sum(open_close_log_ret, na.rm = TRUE), .groups = "drop")
-  
-  df_jrn <- add_next_week_return(df_jrn, df_next_week, df_dropped)
-  
-  # Assign portfolios
-  df_jrn$portfolio <- assign_portfolio(df_jrn, jr_neg, 5)
-  
-  # Evaluate
-  # Summarise returns for each of the 5 portfolios
-  portfolios_wide <- df_jrn %>%
-    group_by(portfolio) %>%
-    summarise(avg_return = mean(next_week_return, na.rm = TRUE), .groups = "drop") %>%
-    pivot_wider(names_from = portfolio, values_from = avg_return, names_prefix = "P") %>%
-    mutate(
-      num_stocks = nrow(df_jrn),
-      week = next_week
+    df_dropped <- tryCatch(
+      readRDS(paste0("data/setdifference/dropped_data_", next_week, ".rds")),
+      error = function(e) NULL
     )
   
-  # Store in results list
-  all_portfolios[[next_week]] <- portfolios_wide
+    # Compute JRNegative ----------------------------------------------------
+    df_jrn <- df_this %>%
+      filter(sym_root %in% ajr_df$sym_root) %>%
+      mutate(
+        rv_neg = map_dbl(returns_5m, ~ sum((.x[.x < 0])^2)),
+        bpv_neg = map_dbl(returns_5m, ~ sum(abs(.x)[-1] * abs(.x)[-length(.x)] * (.x[-1] < 0))),
+        jv_neg = pmax(rv_neg - mu^(-2) * bpv_neg, 0),
+        jr_neg = jv_neg / rv_neg
+      ) %>%
+      filter(!is.na(jr_neg), is.finite(jr_neg)) %>%
+      group_by(permno, sym_root) %>%
+      summarise(
+        jr_neg = mean(jr_neg),
+        .groups = "drop"
+      )
+  
+    # Compute next week returns ---------------------------------------------
+    df_next_week <- df_next %>%
+      group_by(permno) %>%
+      summarise(returns_week = sum(open_close_log_ret, na.rm = TRUE), .groups = "drop")
+  
+    df_dropped_returns <- df_dropped %>%
+      group_by(permno) %>%
+      summarise(returns_week = sum(open_close_log_ret, na.rm = TRUE), .groups = "drop")
+  
+    df_jrn <- add_next_week_return(df_jrn, df_next_week, df_dropped_returns)
+  
+    # Assign portfolios -----------------------------------------------------
+    df_jrn <- assign_portfolio(df_jrn, jr_neg, 5)
+  
+    #print(
+     # df_jrn %>%
+      #  group_by(portfolio) %>%
+       # summarise(
+        #  avg_jrneg = mean(jr_neg),
+         # max_jrneg = max(jr_neg),
+          #min_jrneg = min(jr_neg),
+          #avg_ret = mean(next_week_return, na.rm = TRUE),
+          #.groups = "drop"
+        #)
+    #)
+  
+    # Evaluate performance --------------------------------------------------
+    portfolios_wide <- df_jrn %>%
+      group_by(portfolio) %>%
+      summarise(avg_return = mean(next_week_return, na.rm = TRUE), .groups = "drop") %>%
+      pivot_wider(names_from = portfolio, values_from = avg_return, names_prefix = "P") %>%
+      mutate(
+        num_stocks = nrow(df_jrn),
+        week = next_week
+      )
+  
+    all_portfolios[[next_week]] <- portfolios_wide
+  }
+
+  # Combine and save results -----------------------------------------------
+  final_results <- bind_rows(all_portfolios)
+  saveRDS(final_results, paste0("data/metrics/jrn_portfolio_performance_", type, "_combined.rds"))
 }
-
-
-# Combine results ---------------------------------------------------------
-final_results <- bind_rows(all_portfolios)
-saveRDS(final_results, "data/metrics/jrn_portfolio_performance.rds")
-

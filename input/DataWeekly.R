@@ -36,13 +36,14 @@ files_by_week <- split(rds_files, week_ids)
 
 
 # Parameters for filtering ------------------------------------------------
+min_days <- 3 #good bad vol paper
 min_price <- 5 #paper
 max_price <- 1000 #common
 min_n_obs <- 80 #(good bad volatility paper) staat er niet echt in
 
 
 # Stock universes per week ------------------------------------------------
-get_eligible_stocks_weekly <- function(file_paths, min_price, max_price, min_n_obs) {
+get_eligible_stocks_weekly <- function(file_paths, min_days, min_price, max_price, min_n_obs) {
   if (length(file_paths) == 0) return(character(0))
   
   all_data <- map_dfr(file_paths, function(file) {
@@ -63,13 +64,13 @@ get_eligible_stocks_weekly <- function(file_paths, min_price, max_price, min_n_o
   
   # Count number of valid days each stock appears
   stock_day_counts <- valid_data %>%
-    group_by(sym_root) %>%
+    group_by(permno) %>%
     summarise(n_valid_days = n_distinct(date), .groups = "drop")
   
   # Only keep stocks with enough valid days
   eligible_stocks <- stock_day_counts %>%
     filter(n_valid_days >= min_days) %>%
-    pull(sym_root)
+    pull(permno)
   
   return(eligible_stocks)
 }
@@ -89,6 +90,7 @@ for (i in 1:(length(week_list) - 1)) {
   
   eligible <- get_eligible_stocks_weekly(
     file_paths,
+    min_days = min_days,
     min_price = min_price,
     max_price = max_price,
     min_n_obs = min_n_obs
@@ -114,20 +116,20 @@ for (i in 1:(length(week_list) - 1)) {
   
   # Only keep eligible stocks that appear on enough days in df_week
   valid_counts <- df_week %>%
-    filter(sym_root %in% eligible) %>%
+    filter(permno %in% eligible) %>%
     filter(
       !is.na(close_crsp),
       close_crsp >= min_price,
       close_crsp <= max_price,
       n_obs >= min_n_obs
     ) %>%
-    group_by(sym_root) %>%
+    group_by(permno) %>%
     summarise(n_days = n_distinct(date), .groups = "drop") %>%
     filter(n_days >= required_days)
   
   df_filtered <- df_week %>%
     filter(
-      sym_root %in% valid_counts$sym_root,
+      permno %in% valid_counts$permno,
       !is.na(close_crsp),
       close_crsp >= min_price,
       close_crsp <= max_price,
@@ -138,16 +140,15 @@ for (i in 1:(length(week_list) - 1)) {
   
   # Dropped stocks (present last week, not this week)
   if (!is.null(universe_by_week[[current_week]])) {
-    dropped_stocks <- setdiff(universe_by_week[[current_week]], eligible)
+    dropped_stocks <- setdiff(universe_by_week[[current_week]], universe_by_week[[next_week]])
     
     if (length(dropped_stocks) > 0) {
       # Save data of dropped stocks
-      dropped_data <- df_week %>% filter(sym_root %in% dropped_stocks)
+      dropped_data <- df_week %>% filter(permno %in% dropped_stocks)
       saveRDS(dropped_data, paste0("data/setdifference/dropped_data_", next_week, ".rds"))
     }
   }
 }
-
 
 #if (!dir.exists("data/weekly_filtered")) dir.create("data/weekly_filtered")
 #if (!dir.exists("data/setdifference")) dir.create("data/setdifference")
