@@ -23,7 +23,19 @@ for (i in seq_along(rds_files)) {
   
   if (!is.null(df)) {
     if ("date" %in% colnames(df)) {
-      df$date <- as.character(df$date)  # Coerce to character
+      df <- df %>%
+        mutate(date = as.character(date)) %>%
+        mutate(
+          date = if_else(
+            str_detect(date, "^\\d{8}$"),
+            str_c(
+              substr(date, 1, 4), "-",
+              substr(date, 5, 6), "-",
+              substr(date, 7, 8)
+            ),
+            date
+          )
+        )
     }
     
     # Save cleaned file
