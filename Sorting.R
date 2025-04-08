@@ -96,23 +96,4 @@ summarise_portfolios_value_weighted <- function(df) {
     )
 }
 
-# Performance Evaluation --------------------------------------------------
-
-# Moeten deze data nog ergens vandaan toveren, die code zou niet heel lastig moeten zijn
-# Run Fama-French (heb nu FFC4) regression per portfolio
-
-ffc_results <- ffc_data %>%
-  group_by(portfolio) %>%
-  nest() %>%
-  mutate(
-    model = map(data, ~ lm(excess_ret ~ MKT_RF + SMB + HML + MOM, data = .x)),
-    robust_se = map(model, ~ vcovHC(.x, type = "HC1")),
-    coefs = map2(model, robust_se, ~ coeftest(.x, vcov = .y) %>% tidy())
-  ) %>%
-  unnest(coefs) %>%
-  filter(term == "(Intercept)") %>%
-  select(portfolio, estimate, std.error, statistic, p.value)
-
-# Dan tenslotte weer de High Low spread ook voor deze
-
 
