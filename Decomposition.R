@@ -148,23 +148,33 @@ for (i in 1:(length(week_ids) - 1)) {
   # Create a clean week ID (e.g., "2025-W14")
   clean_week_date <- str_remove(current_week_id, "^filtered_")
   joined$week_id <- clean_week_date
-  all_joined[[current_week_id]] <- joined
   
-  # Rolling join with market_cap using a temporary date column for joined
+  # Rolling join with market_cap using a temporary date column
+  # Convert joined to data.table and add a temporary column "week_date" using ISOweek2date.
   joined_dt <- as.data.table(joined)
   market_cap_dt <- as.data.table(market_cap)
   
-  # Create a temporary date column in joined_dt from week_id using ISOweek2date.
-  # This converts "YYYY-WXX" to the Monday of that week.
+  # Create a temporary date column in joined_dt from week_id.
+  # Here we use "-2" (Tuesday) or any weekday that makes sense; adjust as needed.
   joined_dt[, week_date := ISOweek2date(paste0(week_id, "-2"))]
   
-  # Set keys for the join on permno and the temporary date column in joined_dt, and date in market_cap_dt.
+  # Ensure market_cap_dt's date is a proper Date object.
+  market_cap_dt[, date := as.Date(date, format = "%Y-%m-%d")]
+  
+  # Set keys: joined_dt on permno and week_date, and market_cap_dt on permno and date.
   setkey(joined_dt, permno, week_date)
   setkey(market_cap_dt, permno, date)
   
   # Perform the rolling join: if there is no exact match, use the last available market cap.
   joined_dt <- market_cap_dt[joined_dt, roll = TRUE]
-  joined <- as_tibble(joined_dt)
+  
+  # Convert back to tibble and restore the clean week_id, then remove the temporary column.
+  joined <- as_tibble(joined_dt) %>% 
+    mutate(week_id = clean_week_date) %>% 
+    select(-week_date)
+  
+  # Save the joined data (which now includes market cap) into all_joined.
+  all_joined[[current_week_id]] <- joined
   
   # Calculate the equally weighted performance
   perf_eq <- summarise_portfolios(joined) %>%
@@ -174,10 +184,11 @@ for (i in 1:(length(week_ids) - 1)) {
   perf_vw <- summarise_portfolios_value_weighted(joined) %>%
     mutate(type = "value", week_id = clean_week_date)
   
-  # Combine both results for this week
+  # Combine equally and value weighted results for this week
   perf <- bind_rows(perf_eq, perf_vw)
   portfolio_performance[[current_week_id]] <- perf
 }
+
 
 
 # T5-T1, t value ----------------------------------------------------------
