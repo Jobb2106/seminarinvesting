@@ -36,16 +36,14 @@ files_by_week <- split(rds_files, week_ids)
 
 
 # Parameters for filtering ------------------------------------------------
-min_days <- 3 #good bad vol paper
+min_percent_days <- 0.8 #good bad vol paper
 min_price <- 5 #paper
 max_price <- 1000 #common
 min_n_obs <- 80 #(good bad volatility paper) staat er niet echt in
 
 
-# Stock universes per week ------------------------------------------------
-get_eligible_stocks_weekly <- function(file_paths, min_days, min_price, max_price, min_n_obs) {
-  if (length(file_paths) == 0) return(character(0))
-  
+# Universe builder per week -----------------------------------------------
+filter_week_data <- function(file_paths, min_price, max_price, min_n_obs, min_percent_days) {
   all_data <- map_dfr(file_paths, function(file) {
     tryCatch(readRDS(file), error = function(e) {
       cat("Skipping file:", file, "due to error:", conditionMessage(e), "\n")
@@ -53,30 +51,25 @@ get_eligible_stocks_weekly <- function(file_paths, min_days, min_price, max_pric
     })
   })
   
-  # Filter for per-day quality constraints
-  valid_data <- all_data %>%
+  total_days <- n_distinct(all_data$date)
+  required_days <- floor(min_percent_days * total_days)
+  
+  filtered <- all_data %>%
     filter(
       !is.na(close_crsp),
       close_crsp >= min_price,
       close_crsp <= max_price,
       n_obs >= min_n_obs
-    )
-  
-  # Count number of valid days each stock appears
-  stock_day_counts <- valid_data %>%
+    ) %>%
     group_by(permno) %>%
-    summarise(n_valid_days = n_distinct(date), .groups = "drop")
+    filter(n_distinct(date) >= required_days) %>%
+    ungroup()
   
-  # Only keep stocks with enough valid days
-  eligible_stocks <- stock_day_counts %>%
-    filter(n_valid_days >= min_days) %>%
-    pull(permno)
-  
-  return(eligible_stocks)
+  return(filtered)
 }
 
 
-# Build universes for each week---------------------------------------
+# Build and save weekly universes ----------------------------------------
 week_list <- names(files_by_week)
 universe_by_week <- list()
 
@@ -86,57 +79,15 @@ for (i in 1:(length(week_list) - 1)) {
   
   cat("Building universe for", next_week, "using", current_week, "data...\n")
   
-  file_paths <- files_by_week[[current_week]]
+  current_paths <- files_by_week[[current_week]]
+  next_paths <- files_by_week[[next_week]]
   
-  eligible <- get_eligible_stocks_weekly(
-    file_paths,
-    min_days = min_days,
-    min_price = min_price,
-    max_price = max_price,
-    min_n_obs = min_n_obs
-  )
-
-  universe_by_week[[next_week]] <- eligible
+  filtered_current <- filter_week_data(current_paths, min_price, max_price, min_n_obs, min_percent_days)
+  filtered_next <- filter_week_data(next_paths, min_price, max_price, min_n_obs, min_percent_days)
   
-  # Save the filtered data for next_week
-  df_week <- map_dfr(files_by_week[[next_week]], function(file) {
-    date_str <- str_extract(basename(file), "\\d{4}-\\d{2}-\\d{2}")
-    tryCatch({
-      readRDS(file) %>% mutate(date = as.Date(date_str))
-    }, error = function(e) NULL)
-  })
+  universe_by_week[[next_week]] <- unique(filtered_current$permno)
   
-  total_days <- df_week %>%
-    pull(date) %>%
-    unique() %>%
-    length()
-  
-  # Calculate required number of valid days per stock (based on 80% threshold)
-  required_days <- floor(0.8 * total_days)
-  
-  # Only keep eligible stocks that appear on enough days in df_week
-  valid_counts <- df_week %>%
-    filter(permno %in% eligible) %>%
-    filter(
-      !is.na(close_crsp),
-      close_crsp >= min_price,
-      close_crsp <= max_price,
-      n_obs >= min_n_obs
-    ) %>%
-    group_by(permno) %>%
-    summarise(n_days = n_distinct(date), .groups = "drop") %>%
-    filter(n_days >= required_days)
-  
-  df_filtered <- df_week %>%
-    filter(
-      permno %in% valid_counts$permno,
-      !is.na(close_crsp),
-      close_crsp >= min_price,
-      close_crsp <= max_price,
-      n_obs >= min_n_obs
-    )
-  
-  saveRDS(df_filtered, paste0("data/subset/filtered_", next_week, ".rds"))
+  saveRDS(filtered_next, paste0("data/subset/filtered_", next_week, ".rds"))
   
   # Dropped stocks (present last week, not this week)
   if (!is.null(universe_by_week[[current_week]])) {
