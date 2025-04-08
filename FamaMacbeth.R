@@ -12,12 +12,12 @@ estimate_fama_macbeth(
   vcov = "newey-west"
 )
 
-# We need to collect some variables. I suggest we do: RSJ, market beta, log(market cap), B/M ratio, 1-week lagged return 
+# We need to collect some variables. I suggest we do: JRnegative, RSJ, market beta, log(market cap), B/M ratio, 1-week lagged return 
 # Once we have these variables and put them in a data frame, we simply plug this in the above function and define models 
 
 
 # Single variable regressions are performed below: 
-independent_vars <- c("RSJ", "beta", "MC", "BM", "REV")
+independent_vars <- c("JR_neg", "RSJ", "beta", "MC", "BM", "REV")
 results <- list()
 
 # Loop through each independent variable
@@ -36,12 +36,12 @@ for (var in independent_vars) {
 # Run the full model with all variables
 full_model <- estimate_fama_macbeth(
   data = data_fama_macbeth,
-  model = "ret ~ RSJ + beta + MC + BM + REV",
+  model = "ret ~ RSJ + beta + MC + BM + REV + JR_neg",
   vcov = "newey-west"
 )
 
 # Define the other variables (excluding RSJ)
-other_vars <- c("beta", "MC", "BM", "REV")
+other_vars <- c("beta", "MC", "BM", "REV", "JR_neg")
 
 # Initialize a list to store RSJ + one-variable models
 rsj_plus_models <- list()
@@ -57,7 +57,20 @@ for (var in other_vars) {
 }
 
 
+other_vars <- c("beta", "MC", "BM", "REV", "RSJ")
 
+# Initialize a list to store JR_neg + one-variable models
+JR_neg_plus_models <- list()
+
+# Loop over each of the other variables to run RSJ + X regression
+for (var in other_vars) {
+  formula_str <- paste("ret ~ JR_neg +", var)
+  rsj_plus_models[[var]] <- estimate_fama_macbeth(
+    data = data_fama_macbeth,
+    model = formula_str,
+    vcov = "newey-west"
+  )
+}
 
 
 
