@@ -4,10 +4,19 @@
 # Data import -------------------------------------------------------------
 file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
+df_weekly <- bind_rows(all_joined)
+df_weekly %>% 
+  select(permno, RSJ_week, RES_week, week_id, next_week_return)
+
+# Libraries -----------------------------------------------------------------
+library(dplyr)
+library(stringr)
+library(lmtest)
+library(sandwich)
 
 
 # Code --------------------------------------------------------------------
-# df_weekly moet dan RES_week, RSJ_week, permno & next week return minimaal hebben 
+# RSJ → RES Double Sorting:
 rsj_res_portfolios <- df_weekly %>%
   group_by(week_id) %>%
   mutate(
@@ -24,7 +33,7 @@ rsj_res_portfolios <- df_weekly %>%
   ) %>%
   mutate(double_sort_type = "RSJ -> RES")
 
-
+# RES → RSJ Double Sorting:
 res_rsj_portfolios <- df_weekly %>%
   group_by(week_id) %>%
   mutate(
@@ -41,8 +50,9 @@ res_rsj_portfolios <- df_weekly %>%
   ) %>%
   mutate(double_sort_type = "RES -> RSJ")
 
+# Spread Calculation -----------------------------------------------
 
-# Spread ------------------------------------------------------------------
+# For RSJ → RES sort:
 spreads_by_rsj_bucket <- rsj_res_portfolios %>%
   group_by(week_id, rsj_bucket) %>%
   summarise(
@@ -52,6 +62,7 @@ spreads_by_rsj_bucket <- rsj_res_portfolios %>%
     .groups = "drop"
   )
 
+# For RES → RSJ sort:
 spreads_by_res_bucket <- res_rsj_portfolios %>%
   group_by(week_id, res_bucket) %>%
   summarise(
@@ -61,12 +72,18 @@ spreads_by_res_bucket <- res_rsj_portfolios %>%
     .groups = "drop"
   )
 
-# RSJ → RES Spread
+# Regression for RSJ → RES Spread:
 model_rsj <- lm(spread ~ 1, data = spreads_by_rsj_bucket)
 nw_rsj <- coeftest(model_rsj, vcov = NeweyWest)
 
-# RES → RSJ Spread
+# Regression for RES → RSJ Spread:
 model_res <- lm(spread ~ 1, data = spreads_by_res_bucket)
 nw_res <- coeftest(model_res, vcov = NeweyWest)
+
+# Print results:
+print(nw_rsj)
+print(nw_res)
+
+
 
 
