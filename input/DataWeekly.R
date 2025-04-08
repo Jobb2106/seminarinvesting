@@ -10,7 +10,7 @@ library(lubridate)
 
 
 # Set folders and files -------------------------------------------------------------
-rds_folder <- "input/cleaned"
+rds_folder <- "input/cleanedsubset"
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
 
@@ -89,13 +89,20 @@ for (i in 1:(length(week_list) - 1)) {
   
   saveRDS(filtered_next, paste0("data/subset/filtered_", next_week, ".rds"))
   
-  # Dropped stocks (present last week, not this week)
+  # Dropped stocks (present last week, not in this week's universe)
   if (!is.null(universe_by_week[[current_week]])) {
-    dropped_stocks <- setdiff(universe_by_week[[current_week]], universe_by_week[[next_week]])
+    dropped_permnos <- setdiff(universe_by_week[[current_week]], universe_by_week[[next_week]])
     
-    if (length(dropped_stocks) > 0) {
-      # Save data of dropped stocks
-      dropped_data <- df_week %>% filter(permno %in% dropped_stocks)
+    if (length(dropped_permnos) > 0) {
+      # Use unfiltered data for next week, not filtered_next
+      raw_next_week <- map_dfr(files_by_week[[next_week]], function(file) {
+        date_str <- str_extract(basename(file), "\\d{4}-\\d{2}-\\d{2}")
+        tryCatch({
+          readRDS(file) %>% mutate(date = as.Date(date_str))
+        }, error = function(e) NULL)
+      })
+      
+      dropped_data <- raw_next_week %>% filter(permno %in% dropped_permnos)
       saveRDS(dropped_data, paste0("data/setdifference/dropped_data_", next_week, ".rds"))
     }
   }
