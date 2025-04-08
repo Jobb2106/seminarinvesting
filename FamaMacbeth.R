@@ -56,7 +56,6 @@ for (var in other_vars) {
   )
 }
 
-
 other_vars <- c("beta", "MC", "BM", "REV", "RSJ")
 
 # Initialize a list to store JR_neg + one-variable models
