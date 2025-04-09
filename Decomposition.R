@@ -137,7 +137,7 @@ summarise_week <- function(df, week_id) {
     summarise(
       RSJ_week = if (has_rsj) mean(RSJ_day, na.rm = TRUE) else NA_real_,
       log_returns_week = sum(open_close_log_ret, na.rm = TRUE),
-      simple_returns_week = prod(ret_crsp / 100, na.rm = TRUE) - 1,
+      simple_returns_week = prod((ret_crsp / 100) + 1, na.rm = TRUE) - 1,
       RES_week = if (has_res) sqrt(n()) * sum(RES, na.rm = TRUE) else NA_real_,
       .groups = "drop"
     ) %>%
@@ -206,7 +206,7 @@ for(i in 1:(n_files - 1)) {
     full_join(df_JVneg_week, by = c("permno", "week_id"))
   
   # Process next week data
-  next_file <- subset_file_paths[i + 1]
+  next_file <- file_paths[i + 1]
   df_next <- readRDS(next_file)
   next_week_id <- str_remove(basename(next_file), "\\.rds$")
   clean_next_id <- str_remove(next_week_id, "^filtered_")
