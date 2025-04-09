@@ -118,7 +118,7 @@ calculate_AJR_week <- function(df, week_id) {
     group_by(permno) %>%
     summarise(
       ajr_sum  = sum(ajr_day, na.rm = TRUE),
-      ajr_mean = mean(ajr_day, na.rm = TRUE),
+      # ajr_mean = mean(ajr_day, na.rm = TRUE),
       n_days   = n(),
       .groups  = "drop"
     ) %>%
