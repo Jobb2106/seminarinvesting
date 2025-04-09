@@ -1,8 +1,22 @@
 # This script is for the programming of the decomposition of the RV
 
+# Libraries ---------------------------------------------------------------
+library(dplyr)
+library(stringr)
+library(lmtest)
+library(sandwich)
+library(purrr)
+library(broom)
+library(data.table)
+library(ISOweek)
+library(tidyr)
+
 # Data --------------------------------------------------------------------
 # Laad de data uit GitHub
 file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
+
+# snelle subset omdat joppert het weer verneukt heeft
+subset_file_paths <- file_paths[-(1:65)]
 
 # dropped paths
 dropped_files <- list.files("data/setdifference", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
@@ -15,35 +29,13 @@ ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
 market_cap <- readRDS("data/metrics/MarketCap.rds")
 
 
-# Libraries ---------------------------------------------------------------
-library(dplyr)
-library(stringr)
-library(lmtest)
-library(sandwich)
-library(purrr)
-library(broom)
-library(data.table)
-library(ISOweek)
-library(tidyr)
-
-# RSJ/RES calculations -----------------------------------
+# Calculation Functions -----------------------------------
 # Functions for RV calculations
-rv_negative <- function(returns) {
-  neg_returns <- returns[returns < 0]
-  sum(neg_returns^2)
-}
-
-rv_positive <- function(returns) {
-  pos_returns <- returns[returns > 0]
-  sum(pos_returns^2)
-}
-
 calculate_RSJ_day <- function(df) {
-  df$rv_neg <- sapply(df$returns_5m, rv_negative)
-  df$rv_pos <- sapply(df$returns_5m, rv_positive)
-  
   df %>%
     mutate(
+      rv_neg = sapply(returns_5m, function(r) sum(r[r < 0]^2)),
+      rv_pos = sapply(returns_5m, function(r) sum(r[r > 0]^2)),
       signed_jump = rv_pos - rv_neg,
       RSJ_day = signed_jump / (rv_pos + rv_neg),
       date = as.Date(date)
@@ -67,6 +59,77 @@ calculate_RES_day <- function(df, p = 0.05, scaling_factor = 78^0.5) {
     ungroup()
 }
 
+# Global parameter (mu should already be defined elsewhere)
+mu <- sqrt(2/pi)
+
+# JR negative weekly aggregation: calculate daily JR negative and aggregate by summing
+calculate_JR_negative_week <- function(df, week_id) {
+  df %>%
+    mutate(
+      rv_neg    = map_dbl(returns_5m, ~ sum((.x[.x < 0])^2)),
+      bpv_neg   = map_dbl(returns_5m, ~ sum(abs(.x)[-1] *
+                                              abs(.x)[-length(.x)] *
+                                              (.x[-1] < 0))),
+      jv_neg    = pmax(rv_neg - mu^(-2) * bpv_neg, 0),
+      jr_neg    = jv_neg / rv_neg
+    ) %>%
+    filter(!is.na(jr_neg) & is.finite(jr_neg)) %>%
+    group_by(permno) %>%
+    summarise(jr_neg = sum(jr_neg), .groups = "drop") %>%  # or use mean() if desired
+    mutate(week_id = week_id)
+}
+
+
+# Global parameters
+v <- 0.6090; mu <- sqrt(2/pi); M <- 78; delta <- 1/M
+
+# Helper functions
+RV <- function(returns) sum(returns^2)
+
+BPV <- function(returns) {
+  sum(abs(returns[-1]) * abs(returns[-length(returns)]))
+}
+
+QPV <- function(returns) {
+  abs_returns <- abs(returns)
+  M * sum(
+    abs_returns[1:(length(abs_returns)-3)] *
+      abs_returns[2:(length(abs_returns)-2)] *
+      abs_returns[3:(length(abs_returns)-1)] *
+      abs_returns[4:length(abs_returns)]
+  )
+}
+
+AJR <- function(RV, BPV, QPV, M, mu) {
+  wortel <- max(1, QPV / (BPV^2))
+  (sqrt(M) / sqrt(wortel)) * ((mu^(-2)) * BPV / RV - 1)
+}
+
+# Single function: Compute daily AJR and aggregate to weekly values (per stock)
+calculate_AJR_week <- function(df, week_id) {
+  df %>%
+    mutate(
+      rv     = map_dbl(returns_5m, RV),
+      bpv    = map_dbl(returns_5m, BPV),
+      qpv    = map_dbl(returns_5m, QPV),
+      ajr_day= mapply(AJR, rv, bpv, qpv, MoreArgs = list(M = M, mu = mu))
+    ) %>%
+    filter(!is.na(ajr_day)) %>%
+    group_by(permno) %>%
+    summarise(
+      ajr_sum  = sum(ajr_day, na.rm = TRUE),
+      ajr_mean = mean(ajr_day, na.rm = TRUE),
+      n_days   = n(),
+      .groups  = "drop"
+    ) %>%
+    mutate(
+      ajr_median    = median(ajr_sum, na.rm = TRUE),
+      AJR_portfolio = if_else(ajr_sum < ajr_median, "jump", "continuous"),
+      week_id         = week_id
+    ) %>%
+    select(-ajr_median)
+}
+
 summarise_week <- function(df, week_id) {
   has_rsj <- "RSJ_day" %in% names(df)
   has_res <- "RES" %in% names(df)
@@ -82,112 +145,113 @@ summarise_week <- function(df, week_id) {
     mutate(week_id = week_id)
 }
 
+add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
+  # Stap 1: Haal returns op uit next_week_df
+  next_returns <- next_week_df %>%
+    select(permno, returns_week) %>%
+    rename(next_week_return = returns_week)
+  
+  # Stap 2: Left join met de data van de huidige week
+  merged_df <- current_week_df %>%
+    left_join(next_returns, by = "permno")
+  
+  # Stap 3: Indien er returns ontbreken, vul in met data uit dropped_df
+  if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
+    fallback_returns <- dropped_df %>%
+      select(permno, returns_week) %>%
+      rename(next_week_return = returns_week)
+    
+    merged_df <- merged_df %>%
+      left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
+      mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
+      select(-next_week_return.fallback)
+  }
+  
+  return(merged_df)
+}
+
 # Calculations ------------------------------------------------------------
+# Deze shit hoeft dus maar 1x voor alles gerund en dan zijn we het baasje. Als alles in 1x te veel is kunnen we chuncks doen. 
+# Als we alles een keertje narekenen voor de zekerheid is dit echt top
 weekly_results <- list()
 dropped_results <- list()
+n_files <- length(subset_file_paths)
 
-for (file in file_paths) {
-  df <- readRDS(file)
-  week_id <- str_remove(basename(file), "\\.rds$")
+for(i in 1:(n_files - 1)) {
+  current_file <- subset_file_paths[i]
+  df_current <- readRDS(current_file)
+  week_id <- str_remove(basename(current_file), "\\.rds$")
   clean_week_id <- str_remove(week_id, "^filtered_")
   
-  # Normal calculations: first compute RSJ_day and RES
-  df <- calculate_RSJ_day(df)
-  df <- calculate_RES_day(df)  
+  # Normal calculations: compute RSJ_day and RES
+  df_current <- calculate_RSJ_day(df_current)
+  df_current <- calculate_RES_day(df_current)  
   
-  # Summarize weekly values (this aggregates RSJ_day, returns, and RES into weekly data)
-  df_week_summary <- summarise_week(df, week_id)
-  df_week_summary <- df_week_summary %>% filter(!is.na(RSJ_week))
+  # Summarize weekly values (aggregates RSJ_day, returns, and RES into weekly data)
+  df_week_summary <- summarise_week(df_current, week_id) %>%
+    filter(!is.na(RSJ_week))
   
-  # Assign portfolios for both RSJ and RES sorts:
-  df_week_summary <- df_week_summary %>%
-    mutate(
-      RSJ_portfolio = assign_portfolio(., sorting_variable = "RSJ_week", n_portfolios = 5),
-      RES_portfolio = assign_portfolio(., sorting_variable = "RES_week", n_portfolios = 5)
-    )
+  # Calculate the weekly AJR summary and negative jump ratio (JR negative)
+  df_AJR_week <- calculate_AJR_week(df_current, week_id)
+  df_JVneg_week <- calculate_JR_negative_week(df_current, week_id)
   
-  weekly_results[[week_id]] <- df_week_summary
+  # Merge summaries by stock identifier (ensure the common key is consistent)
+  df_merged_current <- df_week_summary %>%
+    full_join(df_AJR_week, by = c("permno", "week_id")) %>%  # if summarise_week() returns column "week"
+    full_join(df_JVneg_week, by = c("permno", "week_id"))
   
-  dropped_file <- file.path("data/setdifference", paste0("dropped_data_", clean_week_id, ".rds"))
-  # Process dropped data if exists
+  # Process next week data
+  next_file <- subset_file_paths[i + 1]
+  df_next <- readRDS(next_file)
+  next_week_id <- str_remove(basename(next_file), "\\.rds$")
+  clean_next_id <- str_remove(next_week_id, "^filtered_")
+  
+  next_week_summary <- summarise_week(df_next, next_week_id)
+  
+  # Process dropped data for next week (if exists)
+  dropped_file <- file.path("data/setdifference", paste0("dropped_data_", clean_next_id, ".rds"))
   if (file.exists(dropped_file)) {
     dropped_df <- readRDS(dropped_file)
     if (!"returns_week" %in% colnames(dropped_df)) {
-      # dropped_df <- calculate_RSJ_day(dropped_df)
-      # dropped_df <- calculate_RES_day(dropped_df)  # <-- add this call
-      dropped_df <- summarise_week(dropped_df, clean_week_id)
+      dropped_df <- summarise_week(dropped_df, clean_next_id)
     }
-    dropped_results[[clean_week_id]] <- dropped_df
+    dropped_next <- dropped_df
+  } else {
+    dropped_next <- NULL
   }
-}
-
-# Portfolio Sorting -------------------------------------------------------
-portfolio_performance <- list()
-all_joined <- list()
-week_ids <- sort(names(weekly_results))
-
-for (i in 1:(length(week_ids) - 1)) {
-  current_week_id <- week_ids[i]
-  next_week_id <- week_ids[i + 1]
-  clean_next_id <- sub("^filtered_", "", next_week_id)
   
-  current_week <- weekly_results[[current_week_id]]
-  next_week <- weekly_results[[next_week_id]]
-  dropped_next <- dropped_results[[clean_next_id]]
-  
-  # Calculate next week returns
+  # Add next week return using your add_next_week_return() helper
   joined <- add_next_week_return(
-    current_week_df = current_week,
-    next_week_df = next_week,
-    dropped_df = dropped_next
+    current_week_df = df_merged_current,
+    next_week_df    = next_week_summary,
+    dropped_df      = dropped_next
   )
   
-  # Filter out rows without next_week_return
-  joined <- joined[!is.na(joined$next_week_return), ]
+  # Filter out rows without next_week_return and add the week identifier
+  joined <- joined %>%
+    filter(!is.na(next_week_return)) %>%
+    mutate(week = clean_week_id)
   
-  # Create a clean week ID (e.g., "2025-W14")
-  clean_week_date <- str_remove(current_week_id, "^filtered_")
-  joined$week_id <- clean_week_date
-  
-  # Rolling join with market_cap using a temporary date column
-  # Convert joined to data.table and add a temporary column "week_date" using ISOweek2date.
+  # Market Cap Rolling Join using data.table
   joined_dt <- as.data.table(joined)
   market_cap_dt <- as.data.table(market_cap)
   
-  # Create a temporary date column in joined_dt from week_id.
-  # Here we use "-2" (Tuesday) or any weekday that makes sense; adjust as needed.
-  joined_dt[, week_date := ISOweek2date(paste0(week_id, "-2"))]
-  
-  # Ensure market_cap_dt's date is a proper Date object.
+  # Create temporary date column: using Tuesday as an example (adjust "-2" if needed)
+  joined_dt[, week_date := ISOweek2date(paste0(week, "-2"))]
   market_cap_dt[, date := as.Date(date, format = "%Y-%m-%d")]
   
-  # Set keys: joined_dt on permno and week_date, and market_cap_dt on permno and date.
+  # Set keys and perform rolling join
   setkey(joined_dt, permno, week_date)
   setkey(market_cap_dt, permno, date)
-  
-  # Perform the rolling join: if there is no exact match, use the last available market cap.
   joined_dt <- market_cap_dt[joined_dt, roll = TRUE]
   
-  # Convert back to tibble and restore the clean week_id, then remove the temporary column.
-  joined <- as_tibble(joined_dt) %>% 
-    mutate(week_id = clean_week_date) %>% 
-    select(-week_date)
-  
-  # Save the joined data (which now includes market cap) into all_joined.
-  all_joined[[current_week_id]] <- joined
-  
-  # Calculate the equally weighted performance
-  perf_eq <- summarise_portfolios(joined) %>%
-    mutate(type = "equal", week_id = clean_week_date)
-  
-  # Calculate the value weighted performance
-  perf_vw <- summarise_portfolios_value_weighted(joined) %>%
-    mutate(type = "value", week_id = clean_week_date)
-  
-  # Combine equally and value weighted results for this week
-  perf <- bind_rows(perf_eq, perf_vw)
-  portfolio_performance[[current_week_id]] <- perf
+  # Store the joined data in the results list using the clean week id
+  weekly_results[[clean_week_id]] <- joined_dt
 }
+
+
+# Portfolio Sorting -------------------------------------------------------
+
 
 
 
