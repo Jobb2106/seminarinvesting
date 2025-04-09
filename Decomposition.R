@@ -13,13 +13,11 @@ library(tidyr)
 
 # Data --------------------------------------------------------------------
 # Laad de data uit GitHub
-file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
-
-# snelle subset omdat joppert het weer verneukt heeft
-subset_file_paths <- file_paths[-(1:65)]
+rds_folder <- "/Users/thorhogerbrugge/Desktop/Filtered"
+file_paths <- list.files(rds_folder, pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
 # dropped paths
-dropped_files <- list.files("data/setdifference", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
+dropped_files <- list.files("/Users/thorhogerbrugge/Desktop/Dropped", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
 # FFC4 factors
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
@@ -175,10 +173,10 @@ add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
 # Als we alles een keertje narekenen voor de zekerheid is dit echt top
 weekly_results <- list()
 dropped_results <- list()
-n_files <- length(subset_file_paths)
+n_files <- length(file_paths)
 
 for(i in 1:(n_files - 1)) {
-  current_file <- subset_file_paths[i]
+  current_file <- file_paths[i]
   df_current <- readRDS(current_file)
   week_id <- str_remove(basename(current_file), "\\.rds$")
   clean_week_id <- str_remove(week_id, "^filtered_")
@@ -209,7 +207,7 @@ for(i in 1:(n_files - 1)) {
   next_week_summary <- summarise_week(df_next, next_week_id)
   
   # Process dropped data for next week (if exists)
-  dropped_file <- file.path("data/setdifference", paste0("dropped_data_", clean_next_id, ".rds"))
+  dropped_file <- file.path("/Users/thorhogerbrugge/Desktop/Dropped", paste0("dropped_data_", clean_next_id, ".rds"))
   if (file.exists(dropped_file)) {
     dropped_df <- readRDS(dropped_file)
     if (!"returns_week" %in% colnames(dropped_df)) {
