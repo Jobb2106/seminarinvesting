@@ -3,7 +3,7 @@ library(stringr)
 
 # Folder containing the original RDS files
 rds_folder <- "/Users/job/Desktop/RDS3"
-cleaned_folder <- "input/cleaned"
+cleaned_folder <- "input/cleanedsubset"
 
 # List all .rds files
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
