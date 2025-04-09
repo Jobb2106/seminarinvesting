@@ -18,13 +18,13 @@ file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rd
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
   mutate(key = as.character(key))
 
-# Assumes `weekly_results` is a list of weekly data.frames
+# Assumes weekly_results is a list of weekly data.frames
 weekly_all <- bind_rows(weekly_results) %>% 
   mutate(
     week = as.character(week),
-    next_week_return = exp(next_week_return) - 1  # Convert log to arithmetic
+    # returns_week = exp(returns_week / 100) - 1 # Convert log to arithmetic
   ) %>%
-  select(week, permno, RSJ_week, RES_week, market_cap, next_week_return)
+  select(week, permno, RSJ_week, RES_week, market_cap, returns_week)
 
 
 # Portfolio Assignment Function -------------------------------------------
@@ -56,9 +56,9 @@ rsj_portfolios_ew <- weekly_all %>%
     RSJ_portfolio = assign_portfolio(pick(everything()), RSJ_week, n_portfolios = 5)
   ) %>%
   ungroup() %>%
-  group_by(week, RSJ_portfolio) %>%
+  group_by(RSJ_portfolio, week) %>%
   summarise(
-    ret_excess_equal = mean(next_week_return, na.rm = TRUE),
+    ret_excess_equal = mean(returns_week, na.rm = FALSE),
     .groups = "drop"
   ) %>%
   rename(portfolio = RSJ_portfolio)
