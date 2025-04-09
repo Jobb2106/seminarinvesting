@@ -20,8 +20,12 @@ ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
 
 # Assumes `weekly_results` is a list of weekly data.frames
 weekly_all <- bind_rows(weekly_results) %>% 
-  mutate(week = as.character(week)) %>% 
+  mutate(
+    week = as.character(week),
+    next_week_return = exp(next_week_return) - 1  # Convert log to arithmetic
+  ) %>%
   select(week, permno, RSJ_week, RES_week, market_cap, next_week_return)
+
 
 # Portfolio Assignment Function -------------------------------------------
 assign_portfolio <- function(data, sorting_variable, n_portfolios) {
