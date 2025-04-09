@@ -143,31 +143,37 @@ summarise_week <- function(df, week_id) {
     ) %>%
     mutate(week_id = week_id)
 }
+# ------------------------------------------------------------------------------
+# Onderstaande functie hoeft niet meer gerunt te worden. Toch maar laten staan
+# voor de zekerheid 
+# ------------------------------------------------------------------------------
 
-add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
-  # Stap 1: Haal returns op uit next_week_df
-  next_returns <- next_week_df %>%
-    select(permno, returns_week) %>%
-    rename(next_week_return = returns_week)
-  
-  # Stap 2: Left join met de data van de huidige week
-  merged_df <- current_week_df %>%
-    left_join(next_returns, by = "permno")
-  
-  # Stap 3: Indien er returns ontbreken, vul in met data uit dropped_df
-  if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
-    fallback_returns <- dropped_df %>%
-      select(permno, returns_week) %>%
-      rename(next_week_return = returns_week)
-    
-    merged_df <- merged_df %>%
-      left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
-      mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
-      select(-next_week_return.fallback)
-  }
-  
-  return(merged_df)
-}
+# add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
+#   # Stap 1: Haal returns op uit next_week_df
+#   next_returns <- next_week_df %>%
+#     select(permno, returns_week) %>%
+#     rename(next_week_return = returns_week)
+#   
+#   # Stap 2: Left join met de data van de huidige week
+#   merged_df <- current_week_df %>%
+#     left_join(next_returns, by = "permno")
+#   
+#   # Stap 3: Indien er returns ontbreken, vul in met data uit dropped_df
+#   if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
+#     fallback_returns <- dropped_df %>%
+#       select(permno, returns_week) %>%
+#       rename(next_week_return = returns_week)
+#     
+#     merged_df <- merged_df %>%
+#       left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
+#       mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
+#       select(-next_week_return.fallback)
+#   }
+#   
+#   return(merged_df)
+# }
+
+
 
 # Calculations ------------------------------------------------------------
 # Deze shit hoeft dus maar 1x voor alles gerund en dan zijn we het baasje. Als alles in 1x te veel is kunnen we chuncks doen. 
