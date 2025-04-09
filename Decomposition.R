@@ -136,7 +136,8 @@ summarise_week <- function(df, week_id) {
     group_by(permno) %>%
     summarise(
       RSJ_week = if (has_rsj) mean(RSJ_day, na.rm = TRUE) else NA_real_,
-      returns_week = sum(open_close_log_ret, na.rm = TRUE),
+      log_returns_week = sum(open_close_log_ret, na.rm = TRUE),
+      simple_returns_week = prod(ret_crsp / 100, na.rm = TRUE) - 1,
       RES_week = if (has_res) sqrt(n()) * sum(RES, na.rm = TRUE) else NA_real_,
       .groups = "drop"
     ) %>%
