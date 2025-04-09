@@ -51,8 +51,8 @@ calculate_RES_day <- function(df, p = 0.05, scaling_factor = 78^0.5) {
         r_5m <- unlist(returns_5m)
         # Compute the quantile at probability p
         q_p <- quantile(r_5m, probs = p, na.rm = TRUE)
-        # Compute the mean of returns below or equal to the quantile
-        mean(r_5m[r_5m <= q_p], na.rm = TRUE)
+        # Compute the scaled returns below or equal to the quantile
+        ES_p <- (1 / (78 * p)) * sum(r_5m[r_5m <= q_p])
       },
       RES = scaling_factor * ES_p
     ) %>%
