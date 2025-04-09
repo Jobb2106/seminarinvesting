@@ -83,12 +83,11 @@ rsj_portfolios <- weekly_all %>%
   group_by(week) %>%
   mutate(
     portfolio = assign_portfolio(pick(everything()), RSJ_week, n_portfolios = 5),
-    portfolio = as.factor(portfolio)
+    # portfolio = as.factor(portfolio)
   ) %>%
   ungroup() %>%
   group_by(week, portfolio) %>%
   summarize(
-    ret_excess_weighted = weighted.mean(next_week_return, market_cap, na.rm = TRUE),
     ret_excess_equal = mean(next_week_return, na.rm = TRUE),
     .groups = "drop"
   )
@@ -97,7 +96,7 @@ rsj_portfolios <- weekly_all %>%
 average_returns_by_portfolio_rsj <- rsj_portfolios %>%
   group_by(portfolio) %>%
   summarize(
-    avg_weighted_return = mean(ret_excess_weighted, na.rm = TRUE),
+    # avg_weighted_return = mean(ret_excess_weighted, na.rm = TRUE),
     avg_equal_return    = mean(ret_excess_equal, na.rm = TRUE),
     n_weeks             = n(),
     .groups = "drop"
@@ -108,46 +107,37 @@ res_portfolios <- weekly_all %>%
   group_by(week) %>%
   mutate(
     portfolio = assign_portfolio(pick(everything()), RES_week, n_portfolios = 5),
-    portfolio = as.factor(portfolio)
+    # portfolio = as.factor(portfolio)
   ) %>%
   ungroup() %>%
   group_by(week, portfolio) %>%
   summarize(
-    ret_excess_weighted = weighted.mean(next_week_return, market_cap, na.rm = TRUE),
+    # ret_excess_weighted = weighted.mean(next_week_return, market_cap, na.rm = TRUE),
     ret_excess_equal = mean(next_week_return, na.rm = TRUE),
     .groups = "drop"
   )
 
-average_returns_by_portfolio_rsj <- res_portfolios %>%
+average_returns_by_portfolio_res <- res_portfolios %>%
   group_by(portfolio) %>%
   summarize(
-    avg_weighted_return = mean(ret_excess_weighted, na.rm = TRUE),
+    # avg_weighted_return = mean(ret_excess_weighted, na.rm = TRUE),
     avg_equal_return    = mean(ret_excess_equal, na.rm = TRUE),
     n_weeks             = n(),
     .groups = "drop"
   )
 
 # Spread Calculation ------------------------------------------------------
-compute_spread <- function(portfolio_data, ret_type = c("weighted", "equal")) {
-  ret_type <- match.arg(ret_type)
-  
-  ret_col <- if(ret_type == "weighted") "ret_excess_weighted" else "ret_excess_equal"
-  
-  portfolio_data %>%
-    # Create wide format: one column per portfolio; names prefixed by "P"
-    pivot_wider(names_from = portfolio, values_from = all_of(ret_col),
-                names_prefix = "P") %>%
-    # Compute spread as portfolio 5 minus portfolio 1.
-    mutate(spread = P5 - P1) %>%
-    select(week_id, spread)
+compute_spread <- function(port_returns) {
+  port_returns %>%
+    pivot_wider(names_from = portfolio, values_from = ret_excess_equal, names_prefix = "p") %>%
+    mutate(spread = p5 - p1) %>%
+    select(week, spread)
 }
 
 # For RSJ sort:
-rsj_spread_weighted <- compute_spread(rsj_portfolios, ret_type = "weighted")
-rsj_spread_equal    <- compute_spread(rsj_portfolios, ret_type = "equal")
+rsj_spread <- compute_spread(rsj_portfolios)
 
 # For RES sort (assuming you computed res_portfolios similarly):
-res_spread_weighted <- compute_spread(res_portfolios, ret_type = "weighted")
 res_spread_equal    <- compute_spread(res_portfolios, ret_type = "equal")
 
 
@@ -159,7 +149,7 @@ nw_tstat <- function(spread_ts) {
   return(t_value)
 }
 
-rsj_tstat_ew <- nw_tstat(rsj_spread_equal)
+rsj_tstat_ew <- nw_tstat(rsj_spread)
 rsj_tstat_vw <- nw_tstat(rsj_spread_weighted)
 res_tstat_ew <- nw_tstat(res_spread_equal)
 res_tstat_vw <- nw_tstat(res_spread_weighted)
