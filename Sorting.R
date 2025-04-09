@@ -105,6 +105,47 @@ res_portfolios_vw <- weekly_all %>%
   ) %>%
   rename(portfolio = RES_portfolio)
 
+# ============================================================================
+# Result Summaries
+# ============================================================================
+
+# Equal-Weighted Portfolio Average Returns (RSJ)
+rsj_avg_returns_ew <- rsj_portfolios_ew %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_equal, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+# Equal-Weighted Portfolio Average Returns (RES)
+res_avg_returns_ew <- res_portfolios_ew %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_equal, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+# Value-Weighted Portfolio Average Returns (RSJ)
+rsj_avg_returns_vw <- rsj_portfolios_vw %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_weighted, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+# Value-Weighted Portfolio Average Returns (RES)
+res_avg_returns_vw <- res_portfolios_vw %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_weighted, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+
 # -------------------------------------------------------------------------
 # Spread Calculation Function (Re-usable)
 # -------------------------------------------------------------------------
