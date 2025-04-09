@@ -1,15 +1,7 @@
-# This script can be used for portfolio sorting
-# Deze link van TidyVerse heb ik vooral gebruikt: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html
-
-# TODO ook sorten op Realized Quantiles & Double-Sorten
-
-# Data --------------------------------------------------------------------
-# Laad de data uit GitHub
-file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
-
-# FFC4 factors
-ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
-  mutate(key = as.character(key))
+# ============================================================================
+# Portfolio Sorting for RSJ and RES Metrics (Equal-Weighted and Value-Weighted)
+# Based on: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html
+# ============================================================================
 
 # Libraries ---------------------------------------------------------------
 library(tidyverse)
@@ -18,148 +10,184 @@ library(scales)
 library(lmtest)
 library(broom)
 library(sandwich)
-library(tidyr)
-library(dplyr)
+
+# Load Data ---------------------------------------------------------------
+file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
+
+# Load FFC4 factors
+ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
+  mutate(key = as.character(key))
+
+# Assumes `weekly_results` is a list of weekly data.frames
+weekly_all <- bind_rows(weekly_results) %>% 
+  mutate(
+    week = as.character(week),
+    next_week_return = exp(next_week_return) - 1  # Convert log to arithmetic
+  ) %>%
+  select(week, permno, RSJ_week, RES_week, market_cap, next_week_return)
 
 
-# Portfolio Sorting ----------------------------------------------------
+# Portfolio Assignment Function -------------------------------------------
 assign_portfolio <- function(data, sorting_variable, n_portfolios) {
-  # Compute breakpoints for the given sorting variable by week
   breakpoints <- data %>%
     pull({{ sorting_variable }}) %>%
     quantile(
       probs = seq(0, 1, length.out = n_portfolios + 1),
       na.rm = TRUE, names = FALSE
     )
-  # Assign portfolios using findInterval()
+  
   data %>%
-    mutate(portfolio = findInterval(pick(everything()) |> 
-                                      pull({{ sorting_variable }}), 
-                                    breakpoints, all.inside = TRUE)
-    ) %>%
+    mutate(portfolio = findInterval(
+      pull(pick(everything()), {{ sorting_variable }}),
+      breakpoints,
+      all.inside = TRUE
+    )) %>%
     pull(portfolio)
 }
 
-# Equally weighted returns ------------------------------------------------
-summarise_portfolios <- function(df) {
-  df %>%
-    pivot_longer(
-      cols = c(RSJ_portfolio, RES_portfolio),   # Pivot the two portfolio columns into one
-      names_to = "sort_type", 
-      values_to = "portfolio"
-    ) %>%
-    group_by(sort_type, portfolio) %>%
-    summarise(
-      avg_return = mean(next_week_return, na.rm = TRUE),
-      .groups = "drop"
-    )
-}
+# -------------------------------------------------------------------------
+# Equal-Weighted Portfolio Sorts
+# -------------------------------------------------------------------------
 
-
-# Value Weighted Returns --------------------------------------------------
-summarise_portfolios_value_weighted <- function(df) {
-  df %>%
-    pivot_longer(
-      cols = c(RSJ_portfolio, RES_portfolio),
-      names_to = "sort_type", 
-      values_to = "portfolio"
-    ) %>%
-    group_by(sort_type, portfolio) %>%
-    summarise(
-      avg_return = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
-      .groups = "drop"
-    )
-}
-
-
-
-# Single Sorting ----------------------------------------------------------
-weekly_all <- bind_rows(weekly_results) %>% 
-  mutate(week = as.character(week)) %>% 
-  select(week, permno, RSJ_week, RES_week, market_cap, next_week_return)
-
-# Compute portfolios using RSJ_week sorting 
-rsj_portfolios <- weekly_all %>%
+# RSJ Sort (Equal-Weighted)
+rsj_portfolios_ew <- weekly_all %>%
   group_by(week) %>%
   mutate(
-    portfolio = assign_portfolio(pick(everything()), RSJ_week, n_portfolios = 5),
-    # portfolio = as.factor(portfolio)
+    RSJ_portfolio = assign_portfolio(pick(everything()), RSJ_week, n_portfolios = 5)
   ) %>%
   ungroup() %>%
-  group_by(week, portfolio) %>%
-  summarize(
+  group_by(week, RSJ_portfolio) %>%
+  summarise(
     ret_excess_equal = mean(next_week_return, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  rename(portfolio = RSJ_portfolio)
 
-# Results
-average_returns_by_portfolio_rsj <- rsj_portfolios %>%
-  group_by(portfolio) %>%
-  summarize(
-    # avg_weighted_return = mean(ret_excess_weighted, na.rm = TRUE),
-    avg_equal_return    = mean(ret_excess_equal, na.rm = TRUE),
-    n_weeks             = n(),
-    .groups = "drop"
-  )
-
-# 2. Compute value‐weighted portfolios using RES_week sorting
-res_portfolios <- weekly_all %>%
+# RES Sort (Equal-Weighted)
+res_portfolios_ew <- weekly_all %>%
   group_by(week) %>%
   mutate(
-    portfolio = assign_portfolio(pick(everything()), RES_week, n_portfolios = 5),
-    # portfolio = as.factor(portfolio)
+    RES_portfolio = assign_portfolio(pick(everything()), RES_week, n_portfolios = 5)
   ) %>%
   ungroup() %>%
-  group_by(week, portfolio) %>%
-  summarize(
-    # ret_excess_weighted = weighted.mean(next_week_return, market_cap, na.rm = TRUE),
+  group_by(week, RES_portfolio) %>%
+  summarise(
     ret_excess_equal = mean(next_week_return, na.rm = TRUE),
     .groups = "drop"
-  )
+  ) %>%
+  rename(portfolio = RES_portfolio)
 
-average_returns_by_portfolio_res <- res_portfolios %>%
+# -------------------------------------------------------------------------
+# Value-Weighted Portfolio Sorts
+# -------------------------------------------------------------------------
+
+# RSJ Sort (Value-Weighted)
+rsj_portfolios_vw <- weekly_all %>%
+  group_by(week) %>%
+  mutate(
+    RSJ_portfolio = assign_portfolio(pick(everything()), RSJ_week, n_portfolios = 5)
+  ) %>%
+  ungroup() %>%
+  group_by(week, RSJ_portfolio) %>%
+  summarise(
+    ret_excess_weighted = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  rename(portfolio = RSJ_portfolio)
+
+# RES Sort (Value-Weighted)
+res_portfolios_vw <- weekly_all %>%
+  group_by(week) %>%
+  mutate(
+    RES_portfolio = assign_portfolio(pick(everything()), RES_week, n_portfolios = 5)
+  ) %>%
+  ungroup() %>%
+  group_by(week, RES_portfolio) %>%
+  summarise(
+    ret_excess_weighted = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  rename(portfolio = RES_portfolio)
+
+# ============================================================================
+# Result Summaries
+# ============================================================================
+
+# Equal-Weighted Portfolio Average Returns (RSJ)
+rsj_avg_returns_ew <- rsj_portfolios_ew %>%
   group_by(portfolio) %>%
   summarize(
-    # avg_weighted_return = mean(ret_excess_weighted, na.rm = TRUE),
-    avg_equal_return    = mean(ret_excess_equal, na.rm = TRUE),
-    n_weeks             = n(),
+    avg_return = mean(ret_excess_equal, na.rm = TRUE),
+    n_weeks = n(),
     .groups = "drop"
   )
 
-# Spread Calculation ------------------------------------------------------
-compute_spread <- function(port_returns) {
-  port_returns %>%
-    pivot_wider(names_from = portfolio, values_from = ret_excess_equal, names_prefix = "p") %>%
+# Equal-Weighted Portfolio Average Returns (RES)
+res_avg_returns_ew <- res_portfolios_ew %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_equal, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+# Value-Weighted Portfolio Average Returns (RSJ)
+rsj_avg_returns_vw <- rsj_portfolios_vw %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_weighted, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+# Value-Weighted Portfolio Average Returns (RES)
+res_avg_returns_vw <- res_portfolios_vw %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = mean(ret_excess_weighted, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+
+# -------------------------------------------------------------------------
+# Spread Calculation Function (Re-usable)
+# -------------------------------------------------------------------------
+compute_spread <- function(df, return_col) {
+  df %>%
+    pivot_wider(names_from = portfolio, values_from = !!sym(return_col), names_prefix = "p") %>%
     mutate(spread = p5 - p1) %>%
     select(week, spread)
 }
 
-# For RSJ sort:
-rsj_spread <- compute_spread(rsj_portfolios)
+# Compute Spreads
+rsj_spread_ew <- compute_spread(rsj_portfolios_ew, "ret_excess_equal")
+res_spread_ew <- compute_spread(res_portfolios_ew, "ret_excess_equal")
 
-# For RES sort (assuming you computed res_portfolios similarly):
-res_spread_equal    <- compute_spread(res_portfolios, ret_type = "equal")
+rsj_spread_vw <- compute_spread(rsj_portfolios_vw, "ret_excess_weighted")
+res_spread_vw <- compute_spread(res_portfolios_vw, "ret_excess_weighted")
 
-
-
-# Newey-West tstat ---------------------------------------------------------
+# -------------------------------------------------------------------------
+# Newey-West T-statistics
+# -------------------------------------------------------------------------
 nw_tstat <- function(spread_ts) {
   model <- lm(spread ~ 1, data = spread_ts)
   t_value <- coeftest(model, vcov. = NeweyWest(model))[1, "t value"]
   return(t_value)
 }
 
-rsj_tstat_ew <- nw_tstat(rsj_spread)
-rsj_tstat_vw <- nw_tstat(rsj_spread_weighted)
-res_tstat_ew <- nw_tstat(res_spread_equal)
-res_tstat_vw <- nw_tstat(res_spread_weighted)
+# T-stats
+rsj_tstat_ew <- nw_tstat(rsj_spread_ew)
+res_tstat_ew <- nw_tstat(res_spread_ew)
+rsj_tstat_vw <- nw_tstat(rsj_spread_vw)
+res_tstat_vw <- nw_tstat(res_spread_vw)
 
-# FFC4 --------------------------------------------------------------------
-# Step 3: Join with factor data (assuming ffc4_factors has a key column named "key")
-returns_with_factors_equal <- rsj_portfolios %>%
+# -------------------------------------------------------------------------
+# FFC4 Regressions on Equal-Weighted RSJ Portfolios (Optional)
+# -------------------------------------------------------------------------
+returns_with_factors_equal <- rsj_portfolios_ew %>%
   left_join(ffc4_factors, by = c("week" = "key"))
 
-# Step 4: For each sort_type and portfolio, run the FFC4 regression on the equal-weighted portfolio returns
 ffc4_alpha_results_equal <- returns_with_factors_equal %>%
   group_by(portfolio) %>%
   group_modify(~{
