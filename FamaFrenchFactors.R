@@ -9,6 +9,11 @@ library(frenchdata)
 
 
 # Create model ------------------------------------------------------------
+df_rf <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
+  mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
+  group_by(week) |>
+  select("risk_free")
+
 df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
   group_by(week) |>
@@ -20,6 +25,7 @@ df_mm <- tidyfinance::download_data_factors_ff("factors_ff_momentum_factor_daily
   summarize(across("mom", ~ prod(1 + .x) - 1))
 
 df_ffc4 <- left_join(df_ff3, df_mm, by = "week")
+df_ffc4 <- left_join(df_ffc4, df_rf, by = "week")
 
 df_ffc4$key <- week_key(df_ffc4$week)
 
