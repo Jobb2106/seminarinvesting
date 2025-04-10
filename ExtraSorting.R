@@ -280,6 +280,42 @@ ffc4_alpha_res_vw <- 10000 * ffc4_alpha_res_vw
  
 
 
+# Regressing the spreads on FFC4  -----------------------------------------
+nw_tstat_FFC4 <- function(spreads) {
+  # Run the regression of the spread on the FFC4 factors (including intercept)
+  model <- lm(spread ~ mkt_excess + smb + hml + mom, data = spreads)
+  
+  # Get the Newey-West adjusted t-statistic for the intercept
+  t_stat_intercept <- coeftest(model, vcov = NeweyWest(model))["(Intercept)", "t value"]
+  
+  # Return the t-statistic for the intercept
+  return(t_stat_intercept)
+}
+
+# Group each spread with the FFC4 data 
+
+grouped_data_rsj_ew <- rsj_spread_ew %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  group_by(week)
+
+grouped_data_rsj_vw <- rsj_spread_vw %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  group_by(week)
+
+grouped_data_res_ew <- res_spread_ew %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  group_by(week)
+
+grouped_data_res_vw <- res_spread_vw %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  group_by(week)
+
+# Calculate the t statistics
+rsj_alpha_tstat_ew <- nw_tstat_FFC4(grouped_data_rsj_ew)
+rsj_alpha_tstat_vw <- nw_tstat_FFC4(grouped_data_rsj_vw)
+res_alpha_tstat_ew <- nw_tstat_FFC4(grouped_data_res_ew)
+res_alpha_tstat_vw <- nw_tstat_FFC4(grouped_data_res_vw)
+
 
 
 
