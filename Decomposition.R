@@ -11,13 +11,14 @@ library(data.table)
 library(ISOweek)
 library(tidyr)
 
+
 # Data --------------------------------------------------------------------
 # Laad de data uit GitHub
-rds_folder <- "/Users/thorhogerbrugge/Desktop/Filtered"
+rds_folder <- "E:/Seminar/Weekly"
 file_paths <- list.files(rds_folder, pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
 # dropped paths
-dropped_files <- list.files("/Users/thorhogerbrugge/Desktop/Dropped", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
+dropped_files <- list.files("E:/Seminar/Dropped", pattern = "^dropped_data_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
 
 # FFC4 factors
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
@@ -170,6 +171,7 @@ add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
   return(merged_df)
 }
 
+saveRDS(weekly_results, "E:/Seminar/DitIsCheckEnJopIsLelijk/results.rds")
 
 
 # Calculations ------------------------------------------------------------
@@ -249,6 +251,7 @@ for(i in 1:(n_files - 1)) {
   
   # Store the joined data in the results list using the clean week id
   weekly_results[[clean_week_id]] <- joined_dt
+  print(paste("week", clean_week_id, "printed"))
 }
 
 
