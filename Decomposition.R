@@ -143,35 +143,32 @@ summarise_week <- function(df, week_id) {
     ) %>%
     mutate(week_id = week_id)
 }
-# ------------------------------------------------------------------------------
-# Onderstaande functie hoeft niet meer gerunt te worden. Toch maar laten staan
-# voor de zekerheid 
-# ------------------------------------------------------------------------------
 
-# add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
-#   # Stap 1: Haal returns op uit next_week_df
-#   next_returns <- next_week_df %>%
-#     select(permno, returns_week) %>%
-#     rename(next_week_return = returns_week)
-#   
-#   # Stap 2: Left join met de data van de huidige week
-#   merged_df <- current_week_df %>%
-#     left_join(next_returns, by = "permno")
-#   
-#   # Stap 3: Indien er returns ontbreken, vul in met data uit dropped_df
-#   if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
-#     fallback_returns <- dropped_df %>%
-#       select(permno, returns_week) %>%
-#       rename(next_week_return = returns_week)
-#     
-#     merged_df <- merged_df %>%
-#       left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
-#       mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
-#       select(-next_week_return.fallback)
-#   }
-#   
-#   return(merged_df)
-# }
+# Add the next week return to the current dataframe. Currently, simple returns
+add_next_week_return <- function(current_week_df, next_week_df, dropped_df) {
+  # Stap 1: Haal returns op uit next_week_df
+  next_returns <- next_week_df %>%
+    select(permno, simple_returns_week) %>%  
+    rename(next_week_return = returns_week)
+
+  # Stap 2: Left join met de data van de huidige week
+  merged_df <- current_week_df %>%
+    left_join(next_returns, by = "permno")
+
+  # Stap 3: Indien er returns ontbreken, vul in met data uit dropped_df
+  if (!is.null(dropped_df) && any(is.na(merged_df$next_week_return))) {
+    fallback_returns <- dropped_df %>%
+      select(permno, simple_returns_week) %>%
+      rename(next_week_return = returns_week)
+
+    merged_df <- merged_df %>%
+      left_join(fallback_returns, by = "permno", suffix = c("", ".fallback")) %>%
+      mutate(next_week_return = coalesce(next_week_return, next_week_return.fallback)) %>%
+      select(-next_week_return.fallback)
+  }
+
+  return(merged_df)
+}
 
 
 
@@ -255,125 +252,126 @@ for(i in 1:(n_files - 1)) {
 }
 
 
-# Portfolio Sorting -------------------------------------------------------
+#-------------------------------------------------------------------------------
+# Portfolio Sorting. Dit hoeft als het goed is niet meer. 
+#-------------------------------------------------------------------------------
 
-
-
-
-# T5-T1, t value ----------------------------------------------------------
-# Equally Weighted: Calculate the weekly spread for each sort type
-performance_panel_equal <- bind_rows(portfolio_performance) %>%
-  filter(type == "equal") %>%
-  group_by(week_id, sort_type) %>%
-  summarise(
-    spread = first(avg_return[portfolio == max(portfolio)]) - 
-      first(avg_return[portfolio == min(portfolio)]),
-    .groups = "drop"
-  )
-
-# Separate the RSJ and RES results:
-performance_panel_equal_rsj <- performance_panel_equal %>%
-  filter(sort_type == "RSJ_portfolio")
-performance_panel_equal_res <- performance_panel_equal %>%
-  filter(sort_type == "RES_portfolio")
-
-# Run regressions for each
-model_equal_rsj <- lm(spread ~ 1, data = performance_panel_equal_rsj)
-model_equal_res <- lm(spread ~ 1, data = performance_panel_equal_res)
-
-cat("Equally weighted RSJ spread:\n")
-print(coeftest(model_equal_rsj, vcov = NeweyWest))
-
-cat("Equally weighted RES spread:\n")
-print(coeftest(model_equal_res, vcov = NeweyWest))
-
-# Value Weighted: Do the same for value weighted performance
-performance_panel_value <- bind_rows(portfolio_performance) %>%
-  filter(type == "value") %>%
-  group_by(week_id, sort_type) %>%
-  summarise(
-    spread = first(avg_return[portfolio == max(portfolio)]) - 
-      first(avg_return[portfolio == min(portfolio)]),
-    .groups = "drop"
-  )
-
-performance_panel_value_rsj <- performance_panel_value %>%
-  filter(sort_type == "RSJ_portfolio")
-performance_panel_value_res <- performance_panel_value %>%
-  filter(sort_type == "RES_portfolio")
-
-model_value_rsj <- lm(spread ~ 1, data = performance_panel_value_rsj)
-model_value_res <- lm(spread ~ 1, data = performance_panel_value_res)
-
-cat("Value weighted RSJ spread:\n")
-print(coeftest(model_value_rsj, vcov = NeweyWest))
-
-cat("Value weighted RES spread:\n")
-print(coeftest(model_value_res, vcov = NeweyWest))
-
-
-
-# Portfolio Summary -------------------------------------------------------
-# Combined portfolio performance from all weeks:
-combined_df <- bind_rows(portfolio_performance)
-
-# Equally weighted portfolio summary:
-portfolio_summary_equal <- combined_df %>%
-  filter(type == "equal") %>%
-  group_by(sort_type, portfolio) %>%
-  summarise(
-    mean_return = mean(avg_return, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# Value weighted portfolio summary:
-portfolio_summary_value <- combined_df %>%
-  filter(type == "value") %>%
-  group_by(sort_type, portfolio) %>%
-  summarise(
-    mean_return = mean(avg_return, na.rm = TRUE),
-    .groups = "drop"
-  )
-
-
-# FFC4 --------------------------------------------------------------------
-# Equal weighted
-portfolio_returns_weekly_equal <- combined_df %>%
-  filter(type == "equal") %>%
-  group_by(week_id, sort_type, portfolio) %>%
-  summarise(avg_log_return = mean(avg_return, na.rm = TRUE),
-            .groups = "drop") %>%
-  mutate(clean_week_id = str_remove(week_id, "^filtered_"))
-
-returns_with_factors_equal <- portfolio_returns_weekly_equal %>%
-  left_join(ffc4_factors, by = c("clean_week_id" = "key"))
-
-ffc4_alpha_results_equal <- returns_with_factors_equal %>%
-  group_by(sort_type, portfolio) %>%
-  group_modify(~{
-    model <- lm(avg_log_return ~ mkt_excess + smb + hml + mom, data = .x)
-    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
-      filter(term == "(Intercept)") %>%
-      select(estimate, std.error, statistic)
-  })
-
-# Value weighted variant:
-portfolio_returns_weekly_value <- combined_df %>%
-  filter(type == "value") %>%
-  group_by(week_id, sort_type, portfolio) %>%
-  summarise(avg_log_return = mean(avg_return, na.rm = TRUE),
-            .groups = "drop") %>%
-  mutate(clean_week_id = str_remove(week_id, "^filtered_"))
-
-returns_with_factors_value <- portfolio_returns_weekly_value %>%
-  left_join(ffc4_factors, by = c("clean_week_id" = "key"))
-
-ffc4_alpha_results_value <- returns_with_factors_value %>%
-  group_by(sort_type, portfolio) %>%
-  group_modify(~{
-    model <- lm(avg_log_return ~ mkt_excess + smb + hml + mom, data = .x)
-    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
-      filter(term == "(Intercept)") %>%
-      select(estimate, std.error, statistic)
-  })
-
+# 
+# 
+# # T5-T1, t value ----------------------------------------------------------
+# # Equally Weighted: Calculate the weekly spread for each sort type
+# performance_panel_equal <- bind_rows(portfolio_performance) %>%
+#   filter(type == "equal") %>%
+#   group_by(week_id, sort_type) %>%
+#   summarise(
+#     spread = first(avg_return[portfolio == max(portfolio)]) - 
+#       first(avg_return[portfolio == min(portfolio)]),
+#     .groups = "drop"
+#   )
+# 
+# # Separate the RSJ and RES results:
+# performance_panel_equal_rsj <- performance_panel_equal %>%
+#   filter(sort_type == "RSJ_portfolio")
+# performance_panel_equal_res <- performance_panel_equal %>%
+#   filter(sort_type == "RES_portfolio")
+# 
+# # Run regressions for each
+# model_equal_rsj <- lm(spread ~ 1, data = performance_panel_equal_rsj)
+# model_equal_res <- lm(spread ~ 1, data = performance_panel_equal_res)
+# 
+# cat("Equally weighted RSJ spread:\n")
+# print(coeftest(model_equal_rsj, vcov = NeweyWest))
+# 
+# cat("Equally weighted RES spread:\n")
+# print(coeftest(model_equal_res, vcov = NeweyWest))
+# 
+# # Value Weighted: Do the same for value weighted performance
+# performance_panel_value <- bind_rows(portfolio_performance) %>%
+#   filter(type == "value") %>%
+#   group_by(week_id, sort_type) %>%
+#   summarise(
+#     spread = first(avg_return[portfolio == max(portfolio)]) - 
+#       first(avg_return[portfolio == min(portfolio)]),
+#     .groups = "drop"
+#   )
+# 
+# performance_panel_value_rsj <- performance_panel_value %>%
+#   filter(sort_type == "RSJ_portfolio")
+# performance_panel_value_res <- performance_panel_value %>%
+#   filter(sort_type == "RES_portfolio")
+# 
+# model_value_rsj <- lm(spread ~ 1, data = performance_panel_value_rsj)
+# model_value_res <- lm(spread ~ 1, data = performance_panel_value_res)
+# 
+# cat("Value weighted RSJ spread:\n")
+# print(coeftest(model_value_rsj, vcov = NeweyWest))
+# 
+# cat("Value weighted RES spread:\n")
+# print(coeftest(model_value_res, vcov = NeweyWest))
+# 
+# 
+# 
+# # Portfolio Summary -------------------------------------------------------
+# # Combined portfolio performance from all weeks:
+# combined_df <- bind_rows(portfolio_performance)
+# 
+# # Equally weighted portfolio summary:
+# portfolio_summary_equal <- combined_df %>%
+#   filter(type == "equal") %>%
+#   group_by(sort_type, portfolio) %>%
+#   summarise(
+#     mean_return = mean(avg_return, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# # Value weighted portfolio summary:
+# portfolio_summary_value <- combined_df %>%
+#   filter(type == "value") %>%
+#   group_by(sort_type, portfolio) %>%
+#   summarise(
+#     mean_return = mean(avg_return, na.rm = TRUE),
+#     .groups = "drop"
+#   )
+# 
+# 
+# # FFC4 --------------------------------------------------------------------
+# # Equal weighted
+# portfolio_returns_weekly_equal <- combined_df %>%
+#   filter(type == "equal") %>%
+#   group_by(week_id, sort_type, portfolio) %>%
+#   summarise(avg_log_return = mean(avg_return, na.rm = TRUE),
+#             .groups = "drop") %>%
+#   mutate(clean_week_id = str_remove(week_id, "^filtered_"))
+# 
+# returns_with_factors_equal <- portfolio_returns_weekly_equal %>%
+#   left_join(ffc4_factors, by = c("clean_week_id" = "key"))
+# 
+# ffc4_alpha_results_equal <- returns_with_factors_equal %>%
+#   group_by(sort_type, portfolio) %>%
+#   group_modify(~{
+#     model <- lm(avg_log_return ~ mkt_excess + smb + hml + mom, data = .x)
+#     tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+#       filter(term == "(Intercept)") %>%
+#       select(estimate, std.error, statistic)
+#   })
+# 
+# # Value weighted variant:
+# portfolio_returns_weekly_value <- combined_df %>%
+#   filter(type == "value") %>%
+#   group_by(week_id, sort_type, portfolio) %>%
+#   summarise(avg_log_return = mean(avg_return, na.rm = TRUE),
+#             .groups = "drop") %>%
+#   mutate(clean_week_id = str_remove(week_id, "^filtered_"))
+# 
+# returns_with_factors_value <- portfolio_returns_weekly_value %>%
+#   left_join(ffc4_factors, by = c("clean_week_id" = "key"))
+# 
+# ffc4_alpha_results_value <- returns_with_factors_value %>%
+#   group_by(sort_type, portfolio) %>%
+#   group_modify(~{
+#     model <- lm(avg_log_return ~ mkt_excess + smb + hml + mom, data = .x)
+#     tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+#       filter(term == "(Intercept)") %>%
+#       select(estimate, std.error, statistic)
+#   })
+# 
