@@ -1,13 +1,31 @@
-# Voor THOR: de code met de simple returns staat onderaan 
+# Libraries ---------------------------------------------------------------
+library(tidyverse)
+library(RSQLite)
+library(scales)
+library(lmtest)
+library(broom)
+library(sandwich)
 
-# Assumes weekly_results is a list of weekly data.frames
-weekly_all <- bind_rows(weekly_results) %>% 
+# Load FFC4 factors
+ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
+  mutate(key = as.character(key))
+
+# Creates the weekly all dataframe: One dataframe with all results  
+weekly_all <- bind_rows(results) %>% 
   mutate(
     week = as.character(week),
-     # returns_week = exp(returns_week / 100) - 1 # Convert log to arithmetic
   ) %>%
   select(week, permno, RSJ_week, RES_week, market_cap, next_week_return)
 
+# Join the weekly_all dataframe with ffc4_factors to get the risk-free rate (rf)
+weekly_all <- weekly_all %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  mutate(
+    # Calculate the weekly risk-free rate based on the number of trading days in the week
+    weekly_risk_free = trading_days_in_week * risk_free
+  ) %>%
+  ungroup() %>%
+  select(week, permno, RSJ_week, RES_week, market_cap, next_week_return, weekly_risk_free)
 
 # Function to assign portfolios 
 assign_portfolio <- function(data, 
@@ -37,19 +55,9 @@ assign_portfolio <- function(data,
 }
 
 
+# RSJ portfolio Equal Weighted -------------------------------------------
 
-# library(data.table)
-
-# Momenteel niet nodig om RSJ_week te laggen. 
-# # Assuming weekly_all is already a data.table
-# setorder(weekly_all, permno, week)  # sort by permno and week (important for shifting correctly)
-# 
-# # Add lagged RSJ_week by permno
-# weekly_all[, RSJ_lag := shift(RSJ_week, n = 1L, type = "lag"), by = permno] 
-# 
-# weekly_all <- na.omit(weekly_all)
-
-RSJ_portfolios <- weekly_all |>
+RSJ_portfolios_ew <- weekly_all |>
   group_by(week) |>
   mutate(
     portfolio = assign_portfolio(
@@ -61,88 +69,185 @@ RSJ_portfolios <- weekly_all |>
   ) |>
   group_by(portfolio, week) |>
   summarize(
-    ret_excess = mean(next_week_return),
+    ret_excess_rsj_ew = mean(next_week_return),
     .groups = "drop"
   )
 
 # Equal-Weighted Portfolio Average Returns (RSJ)
-rsj_ar_ew <- RSJ_portfolios %>%
+rsj_ar_ew <- RSJ_portfolios_ew %>%
   group_by(portfolio) %>%
   summarize(
-    avg_return = mean(ret_excess, na.rm = TRUE),
+    avg_return = 10000 * mean(ret_excess_rsj_ew, na.rm = TRUE),
     n_weeks = n(),
     .groups = "drop"
   )
 
-# # Simple returns ---------------------------------------------------------------
-# 
-# weekly_all <- bind_rows(weekly_results) %>% 
-#   mutate(
-#     week = as.character(week),
-#   ) %>%
-#   select(week, permno, RSJ_week, RES_week, market_cap, simple_returns_week) # Hier neem ik aan dat simple_returns_week erin zit, effe checken 
-# 
-# # Function to assign portfolios 
-# assign_portfolio <- function(data, 
-#                              sorting_variable, 
-#                              n_portfolios) {
-#   # Compute breakpoints
-#   breakpoints <- data |>
-#     pull({{ sorting_variable }}) |>
-#     quantile(
-#       probs = seq(0, 1, length.out = n_portfolios + 1),
-#       na.rm = TRUE,
-#       names = FALSE
-#     )
-#   
-#   # Assign portfolios
-#   assigned_portfolios <- data |>
-#     mutate(portfolio = findInterval(
-#       pick(everything()) |>
-#         pull({{ sorting_variable }}),
-#       breakpoints,
-#       all.inside = TRUE
-#     )) |>
-#     pull(portfolio)
-#   
-#   # Output
-#   return(assigned_portfolios)
-# }
-# 
-# 
-# 
-# library(data.table)
-# 
-# # Assuming weekly_all is already a data.table
-# setorder(weekly_all, permno, week)  # sort by permno and week (important for shifting correctly)
-# 
-# # Add lagged RSJ_week by permno
-# weekly_all[, RSJ_lag := shift(RSJ_week, n = 1L, type = "lag"), by = permno] 
-# 
-# weekly_all <- na.omit(weekly_all)
-# 
-# RSJ_portfolios <- weekly_all |>
-#   group_by(week) |>
-#   mutate(
-#     portfolio = assign_portfolio(
-#       data = pick(everything()),
-#       sorting_variable = RSJ_lag,
-#       n_portfolios = 5
-#     ),
-#     portfolio = as.factor(portfolio)
-#   ) |>
-#   group_by(portfolio, week) |>
-#   summarize(
-#     ret_excess = mean(simple_returns_week),
-#     .groups = "drop"
-#   )
-# 
-# # Equal-Weighted Portfolio Average Returns (RSJ)
-# rsj_ar_ew <- RSJ_portfolios %>%
-#   group_by(portfolio) %>%
-#   summarize(
-#     avg_return = mean(ret_excess, na.rm = TRUE),
-#     n_weeks = n(),
-#     .groups = "drop"
-#   )
-# 
+
+# RSJ portfolio Value Weighted  -------------------------------------------
+
+RSJ_portfolios_vw <- weekly_all |>
+  group_by(week) |>
+  mutate(
+    portfolio = assign_portfolio(
+      data = pick(everything()),
+      sorting_variable = RSJ_week,
+      n_portfolios = 5
+    ),
+    portfolio = as.factor(portfolio)
+  ) |>
+  filter(!is.na(market_cap)) |>  # Exclude firms with NA in market_cap
+  group_by(portfolio, week) |>
+  summarize(
+    ret_excess_rsj_vw = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Value-weighted Portfolio Average Returns (RSJ)
+rsj_ar_vw <- RSJ_portfolios_vw %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = 10000 * mean(ret_excess_rsj_vw, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+
+# RES portfolio Equal Weighted --------------------------------------------
+
+RES_portfolios_ew <- weekly_all |>
+  group_by(week) |>
+  mutate(
+    portfolio = assign_portfolio(
+      data = pick(everything()),
+      sorting_variable = RES_week,
+      n_portfolios = 5
+    ),
+    portfolio = as.factor(portfolio)
+  ) |>
+  group_by(portfolio, week) |>
+  summarize(
+    ret_excess_res_ew = mean(next_week_return),
+    .groups = "drop"
+  )
+
+# Equal-Weighted Portfolio Average Returns (RES)
+res_ar_ew <- RES_portfolios_ew %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = 10000 * mean(ret_excess_res_ew, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+# RES portfolio value-weighted --------------------------------------------
+
+RES_portfolios_vw <- weekly_all |>
+  group_by(week) |>
+  mutate(
+    portfolio = assign_portfolio(
+      data = pick(everything()),
+      sorting_variable = RES_week,
+      n_portfolios = 5
+    ),
+    portfolio = as.factor(portfolio)
+  ) |>
+  filter(!is.na(market_cap)) |>  # Exclude firms with NA in market_cap
+  group_by(portfolio, week) |>
+  summarize(
+    ret_excess_res_vw = weighted.mean(next_week_return, w = market_cap, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Value-Weighted Portfolio Average Returns (RES)
+res_ar_vw <- RES_portfolios_vw %>%
+  group_by(portfolio) %>%
+  summarize(
+    avg_return = 10000 * mean(ret_excess_res_vw, na.rm = TRUE),
+    n_weeks = n(),
+    .groups = "drop"
+  )
+
+
+# FFC4 for RSJ Equal Weighted Portfolio  ----------------------------------
+
+RSJ_returns_with_factors_equal <- RSJ_portfolios_ew %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  mutate(
+    # Calculate weekly risk-free rate here after the join
+    weekly_risk_free = trading_days_in_week * risk_free,
+    # Adjust for risk-free rate for the regression
+    ret_excess_rsj_ew = ret_excess_rsj_ew - weekly_risk_free
+  )
+
+ffc4_alpha_rsj_ew <- RSJ_returns_with_factors_equal %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_rsj_ew ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_rsj_ew <- 10000 * ffc4_alpha_rsj_ew
+
+# FFC4 for RSJ Value Weighted Portfolio  ----------------------------------
+
+RSJ_returns_with_factors_value <- RSJ_portfolios_vw %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  mutate(
+    # Calculate weekly risk-free rate here after the join
+    weekly_risk_free = trading_days_in_week * risk_free,
+    # Adjust for risk-free rate for the regression
+    ret_excess_rsj_vw = ret_excess_rsj_vw - weekly_risk_free
+  )
+
+ffc4_alpha_rsj_vw <- RSJ_returns_with_factors_value %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_rsj_vw ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_rsj_vw <- 10000 * ffc4_alpha_rsj_vw
+
+# FFC4 for RES Equal Weighted Portfolio  ----------------------------------
+
+RES_returns_with_factors_equal <- RES_portfolios_ew %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  mutate(
+    # Calculate weekly risk-free rate here after the join
+    weekly_risk_free = trading_days_in_week * risk_free,
+    # Adjust for risk-free rate for the regression
+    ret_excess_res_ew = ret_excess_res_ew - weekly_risk_free
+  )
+
+ffc4_alpha_res_ew <- RES_returns_with_factors_equal %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_res_ew ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_res_ew <- 10000 * ffc4_alpha_res_ew
+
+# FFC4 for RES Value Weighted Portfolio  ----------------------------------
+
+RES_returns_with_factors_value <- RES_portfolios_vw %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  mutate(
+    # Calculate weekly risk-free rate here after the join
+    weekly_risk_free = trading_days_in_week * risk_free,
+    # Adjust for risk-free rate for the regression
+    ret_excess_res_vw = ret_excess_res_vw - weekly_risk_free
+  )
+
+ffc4_alpha_res_vw <- RES_returns_with_factors_value %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_res_vw ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_res_vw <- 10000 * ffc4_alpha_res_vw
