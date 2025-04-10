@@ -1,11 +1,11 @@
 # This script can be used to extract the necessary Fama French factors from the Kenneth French data library. This code extracts the 
 # 3 standard FF factors and also the Momentum factor. Together, this creates the Fama-French-Carhart 4-factor model. 
 
-
 # Import packages ---------------------------------------------------------
 library(tidyfinance)   # For downloading Fama-French factor data
 library(dplyr)         # For piping (%>%), mutate(), group_by(), summarize(), across()
 library(lubridate)
+library(frenchdata)
 
 
 # Create model ------------------------------------------------------------

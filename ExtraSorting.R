@@ -8,15 +8,12 @@ library(lmtest)
 library(broom)
 library(sandwich)
 
-# Load Data ---------------------------------------------------------------
-file_paths <- list.files("data/subset", pattern = "^filtered_\\d{4}-W\\d{2}\\.rds$", full.names = TRUE)
-
 # Load FFC4 factors
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
   mutate(key = as.character(key))
 
 # Creates the weekly all dataframe: One dataframe with all results  
-weekly_all <- bind_rows(weekly_results) %>% 
+weekly_all <- bind_rows(results) %>% 
   mutate(
     week = as.character(week),
   ) %>%
@@ -205,3 +202,18 @@ ffc4_alpha_rsj_ew <- RSJ_returns_with_factors_equal %>%
       select(estimate, std.error, statistic)
   })
 ffc4_alpha_rsj_ew <- 10000 * ffc4_alpha_rsj_ew
+
+# FFC4 for RSJ Value Weighted Portfolio  ----------------------------------
+
+RSJ_returns_with_factors_value <- RSJ_portfolios_vw %>%
+  left_join(ffc4_factors, by = c("week" = "key"))
+
+ffc4_alpha_rsj_vw <- RSJ_returns_with_factors_value %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_rsj_vw ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_rsj_vw <- 10000 * ffc4_alpha_rsj_vw
