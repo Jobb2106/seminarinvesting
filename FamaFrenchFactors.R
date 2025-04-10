@@ -12,7 +12,11 @@ library(frenchdata)
 df_rf <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
   group_by(week) |>
-  select("risk_free")
+  summarize(
+    across(c("risk_free"), ~prod(1 + .x) - 1),
+    trading_days_in_week = n()  # Add the count of trading days (rows) per week
+  )
+
 
 df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 

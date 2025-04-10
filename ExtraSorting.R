@@ -19,6 +19,16 @@ weekly_all <- bind_rows(results) %>%
   ) %>%
   select(week, permno, RSJ_week, RES_week, market_cap, next_week_return)
 
+# Join the weekly_all dataframe with ffc4_factors to get the risk-free rate (rf)
+weekly_all <- weekly_all %>%
+  left_join(ffc4_factors, by = c("week" = "key")) %>%
+  mutate(
+    # Multiply risk_free by the number of rows in each group (assumed to be trading days)
+    next_week_return = next_week_return - (trading_days_in_week * risk_free)
+  ) %>%
+  ungroup() %>%
+  select(week, permno, RSJ_week, RES_week, market_cap, next_week_return, risk_free)
+
 # Function to assign portfolios 
 assign_portfolio <- function(data, 
                              sorting_variable, 
@@ -158,12 +168,11 @@ res_ar_vw <- RES_portfolios_vw %>%
     .groups = "drop"
   )
 
-
 # High-low spread calculation  --------------------------------------------
 compute_spread <- function(df, return_col) {
   df %>%
     pivot_wider(names_from = portfolio, values_from = !!sym(return_col), names_prefix = "p") %>%
-    mutate(spread = p5 - p1) %>%
+    mutate(spread = 10000 * (p5 - p1)) %>%
     select(week, spread)
 }
 
