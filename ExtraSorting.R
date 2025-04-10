@@ -167,6 +167,32 @@ res_ar_vw <- RES_portfolios_vw %>%
     .groups = "drop"
   )
 
+compute_spread <- function(df, return_col) {
+  df %>%
+    pivot_wider(names_from = portfolio, values_from = !!sym(return_col), names_prefix = "p") %>%
+    mutate(spread = 10000 * (p5 - p1)) %>%
+    select(week, spread)
+}
+
+# Compute Spreads
+rsj_spread_ew <- compute_spread(RSJ_portfolios_ew, "ret_excess_rsj_ew")
+res_spread_ew <- compute_spread(RES_portfolios_ew, "ret_excess_res_ew")
+
+rsj_spread_vw <- compute_spread(RSJ_portfolios_vw, "ret_excess_rsj_vw")
+res_spread_vw <- compute_spread(RES_portfolios_vw, "ret_excess_res_vw")
+
+# Newey west for spreads
+nw_tstat <- function(spread_ts) {
+  model <- lm(spread ~ 1, data = spread_ts)
+  t_value <- coeftest(model, vcov. = NeweyWest(model))[1, "t value"]
+  return(t_value)
+}
+
+# T-stats
+rsj_tstat_ew <- nw_tstat(rsj_spread_ew)
+res_tstat_ew <- nw_tstat(res_spread_ew)
+rsj_tstat_vw <- nw_tstat(rsj_spread_vw)
+res_tstat_vw <- nw_tstat(res_spread_vw)
 
 # FFC4 for RSJ Equal Weighted Portfolio  ----------------------------------
 
@@ -251,3 +277,9 @@ ffc4_alpha_res_vw <- RES_returns_with_factors_value %>%
       select(estimate, std.error, statistic)
   })
 ffc4_alpha_res_vw <- 10000 * ffc4_alpha_res_vw
+ 
+
+
+
+
+
