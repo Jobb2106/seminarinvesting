@@ -217,3 +217,34 @@ ffc4_alpha_rsj_vw <- RSJ_returns_with_factors_value %>%
       select(estimate, std.error, statistic)
   })
 ffc4_alpha_rsj_vw <- 10000 * ffc4_alpha_rsj_vw
+
+# FFC4 for RES Equal Weighted Portfolio  ----------------------------------
+
+RES_returns_with_factors_equal <- RES_portfolios_ew %>%
+  left_join(ffc4_factors, by = c("week" = "key"))
+
+ffc4_alpha_res_ew <- RES_returns_with_factors_equal %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_res_ew ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_res_ew <- 10000 * ffc4_alpha_res_ew
+
+# FFC4 for RES Value Weighted Portfolio  ----------------------------------
+
+RES_returns_with_factors_value <- RES_portfolios_vw %>%
+  left_join(ffc4_factors, by = c("week" = "key"))
+
+ffc4_alpha_res_vw <- RES_returns_with_factors_value %>%
+  group_by(portfolio) %>%
+  group_modify(~{
+    model <- lm(ret_excess_res_vw ~ mkt_excess + smb + hml + mom, data = .x)
+    tidy(model, conf.int = TRUE, conf.level = 0.95) %>%
+      filter(term == "(Intercept)") %>%
+      select(estimate, std.error, statistic)
+  })
+ffc4_alpha_res_vw <- 10000 * ffc4_alpha_res_vw
+
