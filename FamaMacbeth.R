@@ -12,12 +12,12 @@ estimate_fama_macbeth(
   vcov = "newey-west"
 )
 
-# We need to collect some variables. I suggest we do: JRnegative, RSJ, market beta, log(market cap), B/M ratio, 1-week lagged return 
+# We need to collect some variables. I suggest we do: RES, JRnegative, RSJ, market beta, log(market cap), B/M ratio, 1-week lagged return 
 # Once we have these variables and put them in a data frame, we simply plug this in the above function and define models 
 
 
 # Single variable regressions are performed below: 
-independent_vars <- c("JR_neg", "RSJ", "beta", "MC", "BM", "REV")
+independent_vars <- c("JR_neg", "RSJ", "beta", "MC", "BM", "REV", "RES") # Ik heb RES later toegevoegd, dus hieronder moet dit ook nog worden aangepast
 results <- list()
 
 # Loop through each independent variable
