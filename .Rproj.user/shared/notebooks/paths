@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 C:/Users/638473jo/Documents/seminarinvesting/.Renviron="B9E21268"
 C:/Users/638473jo/Documents/seminarinvesting/CorrelationMatrix.R="28CA4A42"
 C:/Users/638473jo/Documents/seminarinvesting/DataWeekly2.R="2106FFE0"
@@ -6,3 +7,11 @@ C:/Users/638473jo/Documents/seminarinvesting/DoubleSorts.R="D0A7F612"
 C:/Users/638473jo/Documents/seminarinvesting/ExtraSorting.R="9FF6A83D"
 C:/Users/638473jo/Documents/seminarinvesting/FamaFrenchFactors.R="62AD6D1A"
 C:/Users/638473jo/Documents/seminarinvesting/FamaMacbeth.R="7F22E0CC"
+=======
+C:/Users/612337ts/Documents/seminarinvesting/DataWeekly2.R="84721B8E"
+C:/Users/612337ts/Documents/seminarinvesting/Decomposition.R="6D8E9BC5"
+C:/Users/612337ts/Documents/seminarinvesting/DoubleSorts.R="C7BF7451"
+C:/Users/612337ts/Documents/seminarinvesting/ExtraSorting.R="D0A574B3"
+C:/Users/612337ts/Documents/seminarinvesting/JumpContinuousSorting.R="4DEC0ABC"
+C:/Users/612337ts/Documents/seminarinvesting/MarketCap.R="E912DFA0"
+>>>>>>> 6e507104d3278c59026bfc57833895539ac2679c
