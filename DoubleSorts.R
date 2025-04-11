@@ -5,6 +5,8 @@ library(dplyr)
 library(stringr)
 library(lmtest)
 library(sandwich)
+library(tidyverse)
+
 
 
 # Data import -------------------------------------------------------------
@@ -204,8 +206,12 @@ nw_alpha_by_bucket <- function(df, bucket_col) {
   df %>%
     group_by({{ bucket_col }}) %>%
     group_modify(~ {
-      t_stat <- nw_tstat_FFC4(.x)
-      tibble(t_stat_alpha = t_stat)
+      model <- lm(spread ~ mkt_excess + smb + hml + mom, data = .x)
+      coef_summary <- coeftest(model, vcov = NeweyWest(model))
+      tibble(
+        alpha = coef_summary["(Intercept)", "Estimate"],
+        t_stat_alpha = coef_summary["(Intercept)", "t value"]
+      )
     }) %>%
     ungroup()
 }
