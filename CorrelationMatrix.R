@@ -11,18 +11,18 @@ library(sandwich)
 
 
 # Create df ---------------------------------------------------------------
-weekly_all_corr <- bind_rows(results) %>% 
+weekly_all_corr <- bind_rows(results_book) %>% 
   mutate(
     week = as.character(week),
     log_market_cap = log(market_cap)
   ) %>%
-  select(week, permno, RSJ_week, jr_neg, log_market_cap, next_week_return) %>%
+  select(week, permno, RSJ_week, jr_neg, log_market_cap, next_week_return, beta_daily, bm, RES_week) %>%
   filter(!is.na(log_market_cap))
 
 
 # Compute correlations ----------------------------------------------------
 # Define the variables to correlate.
-vars <- c("RSJ_week", "jr_neg", "log_market_cap", "next_week_return")
+vars <- c("RSJ_week", "jr_neg", "log_market_cap", "next_week_return", "beta_daily", "bm", "RES_week")
 
 corr_list <- weekly_all_corr %>%
   group_by(week) %>%
