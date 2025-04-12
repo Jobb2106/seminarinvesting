@@ -1,6 +1,5 @@
 # Compute correlation matrix and summary stats
 
-
 # Import packages ---------------------------------------------------------
 library(tidyverse)
 library(RSQLite)
@@ -10,7 +9,7 @@ library(broom)
 library(sandwich)
 
 
-# Create df ---------------------------------------------------------------
+# Create df with all variables (matched) ---------------------------------------------------------------
 weekly_all_corr <- bind_rows(results_book) %>% 
   mutate(
     week = as.character(week),
@@ -45,7 +44,7 @@ colnames(mean_corr) <- vars
 print(mean_corr)
 
 
-# Compute Mean and Standard Error for the Variables -----------------------
+# Compute mean and standard Error for the variables -----------------------
 overall_stats <- data.frame(
   Variable = vars,
   Mean = sapply(vars, function(v) mean(weekly_all_corr[[v]], na.rm = TRUE)),
@@ -54,3 +53,5 @@ overall_stats <- data.frame(
 
 cat("\nOverall mean and standard error computed from all observations:\n")
 print(overall_stats)
+
+

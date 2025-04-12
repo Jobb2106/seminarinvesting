@@ -100,12 +100,14 @@ beta_daily <- bind_rows(beta_daily)
 saveRDS(beta_daily, "E:/Seminar/Beta/betaresults.rds")
 
 
+# Toevoegen aan results voor corr matrix ----------------------------------
 all_results <- bind_rows(results)
 
 all_results[, month_key := floor_date(date, unit = "month")]
-
 setkey(all_results, permno, month_key)
+
 setDT(beta_daily)
+
 beta_daily[, month_key := floor_date(date, unit = "month")]
 setkey(beta_daily, permno, month_key)
 
