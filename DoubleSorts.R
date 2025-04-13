@@ -354,7 +354,7 @@ library(tidyr)
 library(dplyr)
 
 # Pivot the table: RSJ buckets as rows, RES buckets as columns
-reshaped_table <- RES_RSJ_ar_vw %>%
+reshaped_table <- RES_RSJ_ar_w %>%
   select(rsj_bucket, res_bucket, avg_return) %>%
   pivot_wider(
     names_from = res_bucket,
