@@ -242,6 +242,50 @@ alpha_tstats_rsj_res_vw <- nw_alpha_by_bucket(grouped_rsj_res_vw, rsj_bucket)
 alpha_tstats_res_rsj_ew <- nw_alpha_by_bucket(grouped_res_rsj_ew, res_bucket)
 alpha_tstats_res_rsj_vw <- nw_alpha_by_bucket(grouped_res_rsj_vw, res_bucket)
 
+# Final things for the average return spread  -----------------------------
+
+calculate_weekly_avg_spread <- function(spread_df) {
+  spread_df %>%
+    group_by(week) %>%
+    summarise(
+      avg_weekly_spread = mean(spread, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
+avg_spread_rsj_res_ew <- calculate_weekly_avg_spread(spreads_rsj_res_ew)
+avg_spread_rsj_res_vw <- calculate_weekly_avg_spread(spreads_rsj_res_vw)
+avg_spread_res_rsj_ew <- calculate_weekly_avg_spread(spreads_res_rsj_ew)
+avg_spread_res_rsj_vw <- calculate_weekly_avg_spread(spreads_res_rsj_vw)
+
+avg_spread_tstats <- function(spreads){
+  model <- lm(avg_weekly_spread ~ 1, data = spreads)
+  tval <- coeftest(model, vcov. = NeweyWest(model))["(Intercept)", "t value"]
+}
+
+tstat_avg_spread_rsj_res_ew <- avg_spread_tstats(avg_spread_rsj_res_ew)
+tstat_avg_spread_rsj_res_vw <- avg_spread_tstats(avg_spread_rsj_res_vw)
+tstat_avg_spread_res_rsj_ew <- avg_spread_tstats(avg_spread_res_rsj_ew)
+tstat_avg_spread_res_rsj_vw <- avg_spread_tstats(avg_spread_res_rsj_vw)
+
+calculate_avg_spread_alpha <- function(avg_spread_df, ffc4_df) {
+  merged <- avg_spread_df %>%
+    left_join(ffc4_df, by = c("week" = "key"))
+  
+  model <- lm(avg_weekly_spread ~ mkt_excess + smb + hml + mom, data = merged)
+  coef_summary <- coeftest(model, vcov = NeweyWest(model))
+  
+  tibble(
+    alpha = coef_summary["(Intercept)", "Estimate"],
+    t_stat_alpha = coef_summary["(Intercept)", "t value"]
+  )
+}
+
+alpha_avg_spread_rsj_res_ew <- calculate_avg_spread_alpha(avg_spread_rsj_res_ew, ffc4_factors)
+alpha_avg_spread_rsj_res_vw <- calculate_avg_spread_alpha(avg_spread_rsj_res_vw, ffc4_factors)
+alpha_avg_spread_res_rsj_ew <- calculate_avg_spread_alpha(avg_spread_res_rsj_ew, ffc4_factors)
+alpha_avg_spread_res_rsj_vw <- calculate_avg_spread_alpha(avg_spread_res_rsj_vw, ffc4_factors)
+
 
 # # For RSJ → RES sort:
 # spreads_by_rsj_bucket_ew <- rsj_res_portfolios_ew %>%
@@ -305,18 +349,19 @@ alpha_tstats_res_rsj_vw <- nw_alpha_by_bucket(grouped_res_rsj_vw, res_bucket)
 # Hier nog ff dan FFC4 toevoegen maar zou dat gewoon met chat doen
 
 
+
 library(tidyr)
 library(dplyr)
 
 # Pivot the table: RSJ buckets as rows, RES buckets as columns
-reshaped_table <- RSJ_RES_ar_vw %>%
+reshaped_table <- RES_RSJ_ar_vw %>%
   select(rsj_bucket, res_bucket, avg_return) %>%
   pivot_wider(
-    names_from = rsj_bucket,
+    names_from = res_bucket,
     values_from = avg_return,
-    names_prefix = "RSJ"
+    names_prefix = "RES"
   ) %>%
-  arrange(res_bucket)
+  arrange(rsj_bucket)
 
 # Format and print with 2 decimal places
 formatted_table <- reshaped_table %>%
@@ -324,5 +369,3 @@ formatted_table <- reshaped_table %>%
   format(digits = 2, nsmall = 2)
 
 print(formatted_table, row.names = FALSE)
-
-
