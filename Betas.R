@@ -99,6 +99,10 @@ beta_daily <- bind_rows(beta_daily)
 
 saveRDS(beta_daily, "E:/Seminar/Beta/betaresults.rds")
 
+beta_daily <- betaresults
+
+
+
 
 # Toevoegen aan results voor corr matrix ----------------------------------
 all_results <- bind_rows(results)
