@@ -12,9 +12,7 @@ library(sandwich)
 #results_book[, lagged_week := week_key(lagged_date)]
 
 setorder(results_book, permno, date)  # Ensure it's sorted properly
-
 results_book[, lagged_return := shift(next_week_return, type = "lag"), by = permno]
-
 
 
 # Create df with all variables (matched) ---------------------------------------------------------------
@@ -23,10 +21,11 @@ weekly_all_corr <- bind_rows(results_book) %>%
     week = as.character(week),
     log_market_cap = log(market_cap)
   ) %>%
-  select(week, permno, RSJ_week, jr_neg, log_market_cap, lagged_return, beta_daily, bm, RES_week) %>%
+  select(week, permno, RSJ_week, jr_neg, log_market_cap, lagged_return, beta_daily, bm, RES_week, next_week_return) %>%
   filter(!is.na(log_market_cap))
 
-saveRDS(weekly_all_corr, "data/Corr.rds")
+saveRDS(weekly_all_corr, "/Users/job/Desktop/Cor.rds")
+saveRDS(results_book, "data/ResultsBook.rds")
 
 # Compute correlations ----------------------------------------------------
 # Define the variables to correlate.
@@ -62,5 +61,14 @@ overall_stats <- data.frame(
 
 cat("\nOverall mean and standard error computed from all observations:\n")
 print(overall_stats)
+
+
+# Distribution ------------------------------------------------------------
+dens_RSJ <- density(kernelData$RSJ_week)
+dens_RES <- density(kernelData$RES_week)
+dens_JVminus <- density(kernelData$JVminus)
+plot(dens_RSJ, main = "RSJ")
+plot(dens_RES, main = "RES")
+plot(dens_JVminus, main = "JV_neg")
 
 
