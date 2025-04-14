@@ -8,6 +8,14 @@ library(lmtest)
 library(broom)
 library(sandwich)
 
+#results_book[, lagged_date := date + weeks(1)]
+#results_book[, lagged_week := week_key(lagged_date)]
+
+setorder(results_book, permno, date)  # Ensure it's sorted properly
+
+results_book[, lagged_return := shift(next_week_return, type = "lag"), by = permno]
+
+
 
 # Create df with all variables (matched) ---------------------------------------------------------------
 weekly_all_corr <- bind_rows(results_book) %>% 
@@ -15,13 +23,14 @@ weekly_all_corr <- bind_rows(results_book) %>%
     week = as.character(week),
     log_market_cap = log(market_cap)
   ) %>%
-  select(week, permno, RSJ_week, jr_neg, log_market_cap, next_week_return, beta_daily, bm, RES_week) %>%
+  select(week, permno, RSJ_week, jr_neg, log_market_cap, lagged_return, beta_daily, bm, RES_week) %>%
   filter(!is.na(log_market_cap))
 
+saveRDS(weekly_all_corr, "data/Corr.rds")
 
 # Compute correlations ----------------------------------------------------
 # Define the variables to correlate.
-vars <- c("RSJ_week", "jr_neg", "log_market_cap", "next_week_return", "beta_daily", "bm", "RES_week")
+vars <- c("RSJ_week", "jr_neg", "log_market_cap", "lagged_return", "beta_daily", "bm", "RES_week")
 
 corr_list <- weekly_all_corr %>%
   group_by(week) %>%
