@@ -26,6 +26,7 @@ weekly_all_corr <- bind_rows(results_book) %>%
   select(week, permno, RSJ_week, jr_neg, log_market_cap, lagged_return, beta_daily, bm, RES_week) %>%
   filter(!is.na(log_market_cap))
 
+saveRDS(weekly_all_corr, "data/Corr.rds")
 
 # Compute correlations ----------------------------------------------------
 # Define the variables to correlate.
