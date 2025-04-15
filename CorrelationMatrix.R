@@ -64,11 +64,11 @@ print(overall_stats)
 
 
 # Distribution ------------------------------------------------------------
-dens_RSJ <- density(kernelData$RSJ_week)
-dens_RES <- density(kernelData$RES_week)
-dens_JVminus <- density(kernelData$JVminus)
+dens_RSJ <- density(Cor$RSJ_week)
+dens_RES <- density(Cor$RES_week)
+dens_JRneg <- density(Cor$jr_neg)
 plot(dens_RSJ, main = "RSJ")
 plot(dens_RES, main = "RES")
-plot(dens_JVminus, main = "JV_neg")
+plot(dens_JRneg, main = "JR neg")
 
 
