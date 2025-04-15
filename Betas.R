@@ -1,3 +1,6 @@
+# Calculate daily betas
+
+# Import packages ---------------------------------------------------------
 library(tidyverse)
 library(RSQLite)
 library(scales)
@@ -9,6 +12,7 @@ library(dplyr)
 library(lubridate)
 library(data.table)
 
+# Download data -----------------------------------------------------------
 df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   select(date, mkt_excess, risk_free) |>
   collect()
@@ -28,16 +32,21 @@ crsp_daily_rf <- daily_crsp |>
   ) |>
   select(permno, RET, risk_free, date)
 
+
+# Prepare batches ---------------------------------------------------------
 permnos <- crsp_daily_rf |>
   distinct(permno) |> 
   pull(permno)
 
+#subset
 #crsp_daily_rf <- crsp_daily_rf |> 
  # filter(date >= as.Date("2020-01-01") & date <= as.Date("2020-6-30"))
 
 batch_size <- 500
 batches <- ceiling(length(permnos) / batch_size)
 
+
+# Define functions from TidyFinance ---------------------------------------
 estimate_capm <- function(data, min_obs = 48) {
   data <- data |> drop_na(RET, mkt_excess)
   
@@ -68,6 +77,8 @@ roll_capm_estimation <- function(data, months, min_obs) {
   tibble(date = unique(floor_date(data$date, "month")), beta = betas)
 }
 
+
+# Calculate betas ---------------------------------------------------------
 beta_daily <- list()
 
 for (j in seq_len(batches)) {
@@ -95,33 +106,14 @@ for (j in seq_len(batches)) {
   message("Batch ", j, " out of ", batches, " done (", percent(j / batches), ")\n")
 }
 
-beta_daily <- bind_rows(beta_daily)
 
+# Save betas --------------------------------------------------------------
+beta_daily <- bind_rows(beta_daily)
 saveRDS(beta_daily, "E:/Seminar/Beta/betaresults.rds")
 
-beta_daily <- betaresults
 
+# Handle book-to-market ---------------------------------------------------
+booktomarket <- bookmarket[, -c(2, 3)] #kolommen verwijderen
 
-
-
-# Toevoegen aan results voor corr matrix ----------------------------------
-all_results <- bind_rows(results)
-
-all_results[, month_key := floor_date(date, unit = "month")]
-setkey(all_results, permno, month_key)
-
-setDT(beta_daily)
-
-beta_daily[, month_key := floor_date(date, unit = "month")]
-setkey(beta_daily, permno, month_key)
-
-results_beta <- merge(
-  x = all_results,
-  y = beta_daily[, list(permno, month_key, beta_daily)],
-  by = c("permno", "month_key"),
-  all.x = TRUE
-)
-
-
-
-
+booktomarket <- booktomarket %>% 
+  mutate(date = as.Date(public_date))
