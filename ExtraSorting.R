@@ -1,3 +1,6 @@
+# Based on: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html
+# Based on: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html 
+
 # Libraries ---------------------------------------------------------------
 library(tidyverse)
 library(RSQLite)

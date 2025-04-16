@@ -1,4 +1,4 @@
-# Calculate daily betas
+# Import book-to-market, market cap and calculate daily betas
 
 # Import packages ---------------------------------------------------------
 library(tidyverse)
@@ -11,7 +11,9 @@ library(RPostgres)
 library(dplyr)
 library(lubridate)
 library(data.table)
+library(frenchdata)
 
+# Daily betas
 # Download data -----------------------------------------------------------
 df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   select(date, mkt_excess, risk_free) |>
@@ -111,9 +113,62 @@ for (j in seq_len(batches)) {
 beta_daily <- bind_rows(beta_daily)
 saveRDS(beta_daily, "E:/Seminar/Beta/betaresults.rds")
 
-
-# Handle book-to-market ---------------------------------------------------
+# Book to market
+# Handle book-to-market imported data ---------------------------------------------------
 booktomarket <- bookmarket[, -c(2, 3)] #kolommen verwijderen
 
 booktomarket <- booktomarket %>% 
   mutate(date = as.Date(public_date))
+
+# Market cap
+# Import data -------------------------------------------------------------
+market_cap <- read_csv("input/crsp_data.csv") %>%
+  rename(permno = PERMNO) %>%
+  mutate(
+    date = as.Date(date),
+    market_cap = abs(PRC) * SHROUT / 1000,  # in miljoenen USD
+    week_id = format(as.Date(date), "%Y-W%V")
+  ) %>%
+  select(permno, date, market_cap, week_id) 
+
+
+# Save --------------------------------------------------------------------
+saveRDS(market_cap, "data/metrics/MarketCap.rds")
+
+
+# Fama French Factors
+# This script can be used to extract the necessary Fama French factors from the Kenneth French data library. This code extracts the 
+# 3 standard FF factors and also the Momentum factor. Together, this creates the Fama-French-Carhart 4-factor model. 
+
+# Create model ------------------------------------------------------------
+df_rf <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
+  mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
+  group_by(week) |>
+  summarize(
+    across(c("risk_free"), ~prod(1 + .x) - 1),
+    trading_days_in_week = n()  # Add the count of trading days (rows) per week
+  )
+
+
+df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
+  mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
+  group_by(week) |>
+  summarize(across(c("mkt_excess", "smb", "hml"), ~prod(1 + .x) - 1))
+
+df_mm <- tidyfinance::download_data_factors_ff("factors_ff_momentum_factor_daily", "1993-01-05", "2024-12-31") |> 
+  mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
+  group_by(week) |>
+  summarize(across("mom", ~ prod(1 + .x) - 1))
+
+df_ffc4 <- left_join(df_ff3, df_mm, by = "week")
+df_ffc4 <- left_join(df_ffc4, df_rf, by = "week")
+
+df_ffc4$key <- week_key(df_ffc4$week)
+
+# Save to Git -------------------------------------------------------------
+saveRDS(df_ffc4, "data/metrics/FFC4.rds")
+
+
+
+
+
