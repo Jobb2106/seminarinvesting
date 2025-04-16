@@ -1,4 +1,4 @@
-# Import book-to-market, market cap and calculate daily betas
+# Import book-to-market data, market cap data, Fama French Factor data and calculate daily betas
 
 # Import packages ---------------------------------------------------------
 library(tidyverse)
@@ -13,8 +13,9 @@ library(lubridate)
 library(data.table)
 library(frenchdata)
 
-# Daily betas
-# Download data -----------------------------------------------------------
+
+# Daily betas -------------------------------------------------------------
+# Download risk free rate data from FF -----------------------------------------------------------
 df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   select(date, mkt_excess, risk_free) |>
   collect()
@@ -22,31 +23,29 @@ df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-0
 #tidyfinance::set_wrds_credentials(user = "job2506", password = "Daxvax-gihcu1-tecxat")
 #crsp_daily <- download_data_crsp("crsp_daily", "2020-12-01", "2020-12-31")
 
-crsp_daily_rf <- daily_crsp |>
+crsp_daily_rf <- daily_crsp |> #combine the datasets
   mutate(date = as.Date(date),
   RET = as.numeric(RET)
   )|>
   left_join(df_ff3,
-            by = "date"
+            by = "date" # Join Fama-French data on date
   ) |>
   mutate(
     permno = PERMNO
   ) |>
   select(permno, RET, risk_free, date)
 
-
 # Prepare batches ---------------------------------------------------------
 permnos <- crsp_daily_rf |>
   distinct(permno) |> 
   pull(permno)
 
-#subset
-#crsp_daily_rf <- crsp_daily_rf |> 
- # filter(date >= as.Date("2020-01-01") & date <= as.Date("2020-6-30"))
+# Subset
+# crsp_daily_rf <- crsp_daily_rf |> 
+# filter(date >= as.Date("2020-01-01") & date <= as.Date("2020-6-30"))
 
-batch_size <- 500
+batch_size <- 500 #from Tidyfinance (to avoid memory issues)
 batches <- ceiling(length(permnos) / batch_size)
-
 
 # Define functions from TidyFinance ---------------------------------------
 estimate_capm <- function(data, min_obs = 48) {
@@ -56,6 +55,7 @@ estimate_capm <- function(data, min_obs = 48) {
     return(NA_real_)
   }
   
+  # Run CAPM regression: excess return on market excess return
   tryCatch({
     fit <- lm(RET - risk_free ~ mkt_excess, data = data)
     as.numeric(coef(fit)[2])
@@ -67,6 +67,7 @@ estimate_capm <- function(data, min_obs = 48) {
 roll_capm_estimation <- function(data, months, min_obs) {
   data <- data |> arrange(date)
   
+  # Estimate beta using a rolling monthly window
   betas <- slide_period_vec(
     .x = data,
     .i = data$date,
@@ -78,7 +79,6 @@ roll_capm_estimation <- function(data, months, min_obs) {
   
   tibble(date = unique(floor_date(data$date, "month")), beta = betas)
 }
-
 
 # Calculate betas ---------------------------------------------------------
 beta_daily <- list()
@@ -108,39 +108,40 @@ for (j in seq_len(batches)) {
   message("Batch ", j, " out of ", batches, " done (", percent(j / batches), ")\n")
 }
 
-
-# Save betas --------------------------------------------------------------
+# Save the file
 beta_daily <- bind_rows(beta_daily)
 saveRDS(beta_daily, "E:/Seminar/Beta/betaresults.rds")
 
-# Book to market
-# Handle book-to-market imported data ---------------------------------------------------
-booktomarket <- bookmarket[, -c(2, 3)] #kolommen verwijderen
+
+# Book to market ratio ----------------------------------------------------
+# Data is imported through a CSV file from the CRSP database
+bookmarket <- read_csv("input/bookmarket.csv")
+booktomarket <- bookmarket[, -c(2, 3)] #remove columns 
 
 booktomarket <- booktomarket %>% 
-  mutate(date = as.Date(public_date))
+  mutate(date = as.Date(public_date)) #set date
 
-# Market cap
-# Import data -------------------------------------------------------------
+
+# Market cap --------------------------------------------------
+# Data is imported through a CSV file from the CRSP database
 market_cap <- read_csv("input/crsp_data.csv") %>%
   rename(permno = PERMNO) %>%
   mutate(
     date = as.Date(date),
-    market_cap = abs(PRC) * SHROUT / 1000,  # in miljoenen USD
+    market_cap = abs(PRC) * SHROUT / 1000,  # in million USD
     week_id = format(as.Date(date), "%Y-W%V")
   ) %>%
   select(permno, date, market_cap, week_id) 
 
-
-# Save --------------------------------------------------------------------
 saveRDS(market_cap, "data/metrics/MarketCap.rds")
 
 
-# Fama French Factors
+# Fama French Factors -----------------------------------------------------
 # This script can be used to extract the necessary Fama French factors from the Kenneth French data library. This code extracts the 
 # 3 standard FF factors and also the Momentum factor. Together, this creates the Fama-French-Carhart 4-factor model. 
 
 # Create model ------------------------------------------------------------
+# Download Fama-French 3 daily factors (market excess return and risk-free rate) 
 df_rf <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
   group_by(week) |>
@@ -149,26 +150,24 @@ df_rf <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05
     trading_days_in_week = n()  # Add the count of trading days (rows) per week
   )
 
-
 df_ff3 <- tidyfinance::download_data_factors_ff("factors_ff_3_daily", "1993-01-05", "2024-12-31") |> 
   mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
   group_by(week) |>
   summarize(across(c("mkt_excess", "smb", "hml"), ~prod(1 + .x) - 1))
 
+# Momentum factor weekly
 df_mm <- tidyfinance::download_data_factors_ff("factors_ff_momentum_factor_daily", "1993-01-05", "2024-12-31") |> 
   mutate(week = floor_date(date, "weeks", week_start = "Tuesday")) |> 
   group_by(week) |>
   summarize(across("mom", ~ prod(1 + .x) - 1))
 
+# Combine all four factors into one dataframe
 df_ffc4 <- left_join(df_ff3, df_mm, by = "week")
 df_ffc4 <- left_join(df_ffc4, df_rf, by = "week")
 
+# Add a week key (see DataWeekly.R)
 df_ffc4$key <- week_key(df_ffc4$week)
 
-# Save to Git -------------------------------------------------------------
+# Save to git
 saveRDS(df_ffc4, "data/metrics/FFC4.rds")
-
-
-
-
 
