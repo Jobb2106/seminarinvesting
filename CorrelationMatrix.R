@@ -92,8 +92,8 @@ print(mean_corr)
 # Compute mean and standard Error for the variables -----------------------
 overall_stats <- data.frame(
   Variable = vars,
-  Mean = sapply(vars, function(v) mean(weekly_all_corr[[v]], na.rm = TRUE)),
-  StdError = sapply(vars, function(v) sd(weekly_all_corr[[v]], na.rm = TRUE) / sqrt(sum(!is.na(weekly_all_corr[[v]]))))
+  Mean = sapply(vars, function(v) mean(results_book[[v]], na.rm = TRUE)),
+  StdError = sapply(vars, function(v) sd(results_book[[v]], na.rm = TRUE))
 )
 
 print(overall_stats) # Print
