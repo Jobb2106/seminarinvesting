@@ -93,20 +93,145 @@ multiple_summary <- full_model %>%
 print(multiple_summary)
 
 
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Regression with RSJ + firm-specific variables
+model_RSJ_4F <- estimate_fama_macbeth(
+  data = Fama_Macbeth,
+  model = "next_week_return ~ RSJ_week + beta_daily + log_market_cap + bm + lagged_return",
+  vcov = "newey-west"
+)
+
+summary_RSJ_4F <- model_RSJ_4F %>%
+  filter(factor != "intercept") %>%
+  mutate(
+    risk_premium = formatC(risk_premium, format = "f", digits = 2),
+    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
+  ) %>%
+  select(factor, risk_premium, t_statistic)
+
+print(summary_RSJ_4F)
 
 
-# Additional multivariate regressions -------------------------------------
-# A new regression is indicated with ------------ 
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
-# Run the model with RSJ_week, jr_neg, and RES_week
-model_RRJ <- estimate_fama_macbeth(
+# Regression with JR + firm-specific variables
+model_JR_4F <- estimate_fama_macbeth(
+  data = Fama_Macbeth,
+  model = "next_week_return ~ jr_neg + beta_daily + log_market_cap + bm + lagged_return",
+  vcov = "newey-west"
+)
+
+summary_JR_4F <- model_JR_4F %>%
+  filter(factor != "intercept") %>%
+  mutate(
+    risk_premium = formatC(risk_premium, format = "f", digits = 2),
+    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
+  ) %>%
+  select(factor, risk_premium, t_statistic)
+
+print(summary_JR_4F)
+
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+model_RES_4F <- estimate_fama_macbeth(
+  data = Fama_Macbeth,
+  model = "next_week_return ~ RES_week + beta_daily + log_market_cap + bm + lagged_return",
+  vcov = "newey-west"
+)
+
+summary_RES_4F <- model_RES_4F %>%
+  filter(factor != "intercept") %>%
+  mutate(
+    risk_premium = formatC(risk_premium, format = "f", digits = 2),
+    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
+  ) %>%
+  select(factor, risk_premium, t_statistic)
+
+print(summary_RES_4F)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Regression with RSJ + JR + firm-specific variables
+model_RSJ_JR_4F <- estimate_fama_macbeth(
+  data = Fama_Macbeth,
+  model = "next_week_return ~ RSJ_week + jr_neg + beta_daily + log_market_cap + bm + lagged_return",
+  vcov = "newey-west"
+)
+
+summary_RSJ_JR_4F <- model_RSJ_JR_4F %>%
+  filter(factor != "intercept") %>%
+  mutate(
+    risk_premium = formatC(risk_premium, format = "f", digits = 2),
+    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
+  ) %>%
+  select(factor, risk_premium, t_statistic)
+
+print(summary_RSJ_JR_4F)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+model_RSJ_RES_4F <- estimate_fama_macbeth(
+  data = Fama_Macbeth,
+  model = "next_week_return ~ RSJ_week + RES_week + beta_daily + log_market_cap + bm + lagged_return",
+  vcov = "newey-west"
+)
+
+summary_RSJ_RES_4F <- model_RSJ_RES_4F %>%
+  filter(factor != "intercept") %>%
+  mutate(
+    risk_premium = formatC(risk_premium, format = "f", digits = 2),
+    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
+  ) %>%
+  select(factor, risk_premium, t_statistic)
+
+print(summary_RSJ_RES_4F)
+
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Regression with JR + RES + firm-specific variables
+model_JR_RES_4F <- estimate_fama_macbeth(
+  data = Fama_Macbeth,
+  model = "next_week_return ~ jr_neg + RES_week + beta_daily + log_market_cap + bm + lagged_return",
+  vcov = "newey-west"
+)
+
+summary_JR_RES_4F <- model_JR_RES_4F %>%
+  filter(factor != "intercept") %>%
+  mutate(
+    risk_premium = formatC(risk_premium, format = "f", digits = 2),
+    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
+  ) %>%
+  select(factor, risk_premium, t_statistic)
+
+print(summary_JR_RES_4F)
+
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Regression with RSJ + JR + RES only
+model_RSJ_JR_RES <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ RSJ_week + jr_neg + RES_week",
   vcov = "newey-west"
 )
 
-# Create a summary table for this regression
-summary_RRJ <- model_RRJ %>%
+summary_RSJ_JR_RES <- model_RSJ_JR_RES %>%
   filter(factor != "intercept") %>%
   mutate(
     risk_premium = formatC(risk_premium, format = "f", digits = 2),
@@ -114,84 +239,20 @@ summary_RRJ <- model_RRJ %>%
   ) %>%
   select(factor, risk_premium, t_statistic)
 
-# Show the result
-print(summary_RRJ) 
+print(summary_RSJ_JR_RES)
 
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 
-# Regression with RSJ_week and jr_neg
-model_RJ <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ RSJ_week + jr_neg",
-  vcov = "newey-west"
-)
-
-summary_RJ <- model_RJ %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_RJ)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with RSJ_week and RES_week
-model_RR <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ RSJ_week + RES_week",
-  vcov = "newey-west"
-)
-
-summary_RR <- model_RR %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_RR)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with jr_neg and RES_week
-model_JR <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ jr_neg + RES_week",
-  vcov = "newey-west"
-)
-
-summary_JR <- model_JR %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_JR)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------- 
-
-# Regression with beta_daily, log_market_cap, bm, and lagged_return
-model_4F <- estimate_fama_macbeth(
+# Regression with only firm-specific variables (no RSJ, JR, RES)
+model_4F_only <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ beta_daily + log_market_cap + bm + lagged_return",
   vcov = "newey-west"
 )
 
-summary_4F <- model_4F %>%
+summary_4F_only <- model_4F_only %>%
   filter(factor != "intercept") %>%
   mutate(
     risk_premium = formatC(risk_premium, format = "f", digits = 2),
@@ -199,90 +260,5 @@ summary_4F <- model_4F %>%
   ) %>%
   select(factor, risk_premium, t_statistic)
 
-print(summary_4F)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# ----------------------------------------------------------------------------- 
-
-# Regression with RSJ, JR, RES + beta_daily
-model_RRJ_BETA <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ RSJ_week + jr_neg + RES_week + beta_daily",
-  vcov = "newey-west"
-)
-
-summary_RRJ_BETA <- model_RRJ_BETA %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_RRJ_BETA)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with RSJ, JR, RES + log_market_cap
-model_RRJ_ME <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ RSJ_week + jr_neg + RES_week + log_market_cap",
-  vcov = "newey-west"
-)
-
-summary_RRJ_ME <- model_RRJ_ME %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_RRJ_ME)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with RSJ, JR, RES + bm
-model_RRJ_BM <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ RSJ_week + jr_neg + RES_week + bm",
-  vcov = "newey-west"
-)
-
-summary_RRJ_BM <- model_RRJ_BM %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_RRJ_BM)
-
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with RSJ, JR, RES + lagged_return
-model_RRJ_REV <- estimate_fama_macbeth(
-  data = Fama_Macbeth,
-  model = "next_week_return ~ RSJ_week + jr_neg + RES_week + lagged_return",
-  vcov = "newey-west"
-)
-
-summary_RRJ_REV <- model_RRJ_REV %>%
-  filter(factor != "intercept") %>%
-  mutate(
-    risk_premium = formatC(risk_premium, format = "f", digits = 2),
-    t_statistic  = formatC(t_statistic,  format = "f", digits = 2)
-  ) %>%
-  select(factor, risk_premium, t_statistic)
-
-print(summary_RRJ_REV)
-
+print(summary_4F_only)
 
