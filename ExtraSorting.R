@@ -1,7 +1,8 @@
 # Based on: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html
-# Based on: https://www.tidy-finance.org/r/univariate-portfolio-sorts.html 
+# Portfolio sorting on RSJ and RES signals to assess predictive power
+# via equal- and value-weighted returns, spreads, and FFC4 alpha tests.
 
-# Libraries ---------------------------------------------------------------
+# Import libraries ---------------------------------------------------------------
 library(tidyverse)
 library(RSQLite)
 library(scales)
@@ -9,9 +10,11 @@ library(lmtest)
 library(broom)
 library(sandwich)
 
+
+# Load data ---------------------------------------------------------------
 # Load FFC4 factors
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
-  mutate(key = as.character(key))
+  mutate(key = as.character(key)) # ensure matching with 'week' column
 
 # Creates the weekly all dataframe: One dataframe with all results  
 weekly_all <- bind_rows(results) %>% 
@@ -25,12 +28,13 @@ weekly_all <- weekly_all %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
     # Calculate the weekly risk-free rate based on the number of trading days in the week
-    weekly_risk_free = trading_days_in_week * risk_free
+    weekly_risk_free = trading_days_in_week * risk_free # annualized to weekly
   ) %>%
   ungroup() %>%
   select(week, permno, RSJ_week, RES_week, market_cap, next_week_return, weekly_risk_free)
 
-# Function to assign portfolios 
+
+# Define function to assign portfolios --------------------------------------------------------
 assign_portfolio <- function(data, 
                              sorting_variable, 
                              n_portfolios) {
@@ -49,7 +53,7 @@ assign_portfolio <- function(data,
       pick(everything()) |>
         pull({{ sorting_variable }}),
       breakpoints,
-      all.inside = TRUE
+      all.inside = TRUE # ensures no NA from edge values
     )) |>
     pull(portfolio)
   
@@ -59,14 +63,13 @@ assign_portfolio <- function(data,
 
 
 # RSJ portfolio Equal Weighted -------------------------------------------
-
 RSJ_portfolios_ew <- weekly_all |>
   group_by(week) |>
   mutate(
     portfolio = assign_portfolio(
       data = pick(everything()),
       sorting_variable = RSJ_week,
-      n_portfolios = 5
+      n_portfolios = 5 # assign quintile
     ),
     portfolio = as.factor(portfolio)
   ) |>
@@ -87,7 +90,6 @@ rsj_ar_ew <- RSJ_portfolios_ew %>%
 
 
 # RSJ portfolio Value Weighted  -------------------------------------------
-
 RSJ_portfolios_vw <- weekly_all |>
   group_by(week) |>
   mutate(
@@ -116,7 +118,6 @@ rsj_ar_vw <- RSJ_portfolios_vw %>%
 
 
 # RES portfolio Equal Weighted --------------------------------------------
-
 RES_portfolios_ew <- weekly_all |>
   group_by(week) |>
   mutate(
@@ -142,8 +143,8 @@ res_ar_ew <- RES_portfolios_ew %>%
     .groups = "drop"
   )
 
-# RES portfolio value-weighted --------------------------------------------
 
+# RES portfolio value-weighted --------------------------------------------
 RES_portfolios_vw <- weekly_all |>
   group_by(week) |>
   mutate(
@@ -173,7 +174,7 @@ res_ar_vw <- RES_portfolios_vw %>%
 compute_spread <- function(df, return_col) {
   df %>%
     pivot_wider(names_from = portfolio, values_from = !!sym(return_col), names_prefix = "p") %>%
-    mutate(spread = 10000 * (p5 - p1)) %>%
+    mutate(spread = 10000 * (p5 - p1)) %>% # convert to basis points
     select(week, spread)
 }
 
@@ -186,8 +187,8 @@ res_spread_vw <- compute_spread(RES_portfolios_vw, "ret_excess_res_vw")
 
 # Newey west for spreads
 nw_tstat <- function(spread_ts) {
-  model <- lm(spread ~ 1, data = spread_ts)
-  t_value <- coeftest(model, vcov. = NeweyWest(model))[1, "t value"]
+  model <- lm(spread ~ 1, data = spread_ts) # regression of spread on constant
+  t_value <- coeftest(model, vcov. = NeweyWest(model))[1, "t value"] # heteroskedasticity & autocorrelation consistent
   return(t_value)
 }
 
@@ -197,8 +198,8 @@ res_tstat_ew <- nw_tstat(res_spread_ew)
 rsj_tstat_vw <- nw_tstat(rsj_spread_vw)
 res_tstat_vw <- nw_tstat(res_spread_vw)
 
-# FFC4 for RSJ Equal Weighted Portfolio  ----------------------------------
 
+# FFC4 for RSJ Equal Weighted Portfolio  ----------------------------------
 RSJ_returns_with_factors_equal <- RSJ_portfolios_ew %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
@@ -216,10 +217,10 @@ ffc4_alpha_rsj_ew <- RSJ_returns_with_factors_equal %>%
       filter(term == "(Intercept)") %>%
       select(estimate, std.error, statistic)
   })
-ffc4_alpha_rsj_ew <- 10000 * ffc4_alpha_rsj_ew
+ffc4_alpha_rsj_ew <- 10000 * ffc4_alpha_rsj_ew # convert to basis points
+
 
 # FFC4 for RSJ Value Weighted Portfolio  ----------------------------------
-
 RSJ_returns_with_factors_value <- RSJ_portfolios_vw %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
@@ -239,8 +240,8 @@ ffc4_alpha_rsj_vw <- RSJ_returns_with_factors_value %>%
   })
 ffc4_alpha_rsj_vw <- 10000 * ffc4_alpha_rsj_vw
 
-# FFC4 for RES Equal Weighted Portfolio  ----------------------------------
 
+# FFC4 for RES Equal Weighted Portfolio  ----------------------------------
 RES_returns_with_factors_equal <- RES_portfolios_ew %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
@@ -260,8 +261,8 @@ ffc4_alpha_res_ew <- RES_returns_with_factors_equal %>%
   })
 ffc4_alpha_res_ew <- 10000 * ffc4_alpha_res_ew
 
-# FFC4 for RES Value Weighted Portfolio  ----------------------------------
 
+# FFC4 for RES Value Weighted Portfolio  ----------------------------------
 RES_returns_with_factors_value <- RES_portfolios_vw %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
@@ -282,7 +283,6 @@ ffc4_alpha_res_vw <- RES_returns_with_factors_value %>%
 ffc4_alpha_res_vw <- 10000 * ffc4_alpha_res_vw
  
 
-
 # Regressing the spreads on FFC4  -----------------------------------------
 nw_tstat_FFC4 <- function(spreads) {
   # Run the regression of the spread on the FFC4 factors (including intercept)
@@ -296,7 +296,6 @@ nw_tstat_FFC4 <- function(spreads) {
 }
 
 # Group each spread with the FFC4 data 
-
 grouped_data_rsj_ew <- rsj_spread_ew %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   group_by(week)
@@ -318,9 +317,4 @@ rsj_alpha_tstat_ew <- nw_tstat_FFC4(grouped_data_rsj_ew)
 rsj_alpha_tstat_vw <- nw_tstat_FFC4(grouped_data_rsj_vw)
 res_alpha_tstat_ew <- nw_tstat_FFC4(grouped_data_res_ew)
 res_alpha_tstat_vw <- nw_tstat_FFC4(grouped_data_res_vw)
-
-
-
-
-
 
