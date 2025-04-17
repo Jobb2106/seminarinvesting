@@ -1,7 +1,6 @@
-
-#timo
-
-# This script is used to calculate the portfolio sorts for the jump and continuous portfolios based on negative JR 
+# This script computes equal- and value-weighted portfolio returns 
+# sorted on negative JR, for both continuous and jump components.
+# It also calculates spreads, t-stats (Newey-West), and FFC4 alphas.
 
 # Libraries 
 library(tidyverse)
@@ -11,7 +10,8 @@ library(lmtest)
 library(broom)
 library(sandwich)
 
-# Load FFC4 factors
+
+# Create dataframe --------------------------------------------------------
 ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
   mutate(key = as.character(key))
 
@@ -39,6 +39,8 @@ continuous_df <- weekly_all %>%
 jump_df <- weekly_all %>%
   filter(AJR_portfolio == "jump")
 
+
+# Define function --------------------------------------------------------
 # Function to assign portfolios 
 assign_portfolio <- function(data, 
                              sorting_variable, 
@@ -174,7 +176,6 @@ jr_jump_ar_vw <- JR_jump_portfolios_vw %>%
 
 
 # Compute the spreads  ----------------------------------------------------
-
 compute_spread <- function(df, return_col) {
   df %>%
     pivot_wider(names_from = portfolio, values_from = !!sym(return_col), names_prefix = "p") %>%
@@ -189,7 +190,6 @@ jr_jump_spread_vw <- compute_spread(JR_jump_portfolios_vw, "ret_excess")
 
 
 # Newey west for spreads --------------------------------------------------
-
 nw_tstat <- function(spread_ts) {
   spread_ts <- spread_ts %>% filter(!is.na(spread))  # Remove NA values
   model <- lm(spread ~ 1, data = spread_ts)
@@ -197,7 +197,7 @@ nw_tstat <- function(spread_ts) {
   return(t_value)
 }
 
-# T-stats
+# Calculate T-statistics
 jr_cont_tstat_ew <- nw_tstat(jr_cont_spread_ew)
 jr_cont_tstat_vw <- nw_tstat(jr_cont_spread_vw)
 jr_jump_tstat_ew <- nw_tstat(jr_jump_spread_ew)
@@ -205,7 +205,6 @@ jr_jump_tstat_vw <- nw_tstat(jr_jump_spread_vw)
 
 
 # FFC4 for JR cont Equal Weighted Portfolio -------------------------------
-
 JR_cont_with_factors_equal <- JR_cont_portfolios_ew %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
@@ -263,7 +262,6 @@ ffc4_alpha_jr_jump_ew <- 10000 * ffc4_alpha_jr_jump_ew
 
 
 # FFC4 for JR jump value weighted portfolio  ------------------------------
-
 JR_jump_with_factors_value <- JR_jump_portfolios_vw %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   mutate(
@@ -295,7 +293,6 @@ nw_tstat_FFC4 <- function(spreads) {
 }
 
 # Group each spread with the FFC4 data 
-
 grouped_data_jr_cont_ew <- jr_cont_spread_ew %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   group_by(week)
@@ -312,6 +309,7 @@ grouped_data_jr_jump_vw <- jr_jump_spread_vw %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
   group_by(week)
 
+# Compute T-stats for alpha (spread intercept)
 jr_cont_alpha_tstat_ew <- nw_tstat_FFC4(grouped_data_jr_cont_ew)
 jr_cont_alpha_tstat_vw <- nw_tstat_FFC4(grouped_data_jr_cont_vw)
 jr_jump_alpha_tstat_ew <- nw_tstat_FFC4(grouped_data_jr_jump_ew)

@@ -1,6 +1,6 @@
 # This script can be used to perform the FamaMacbeth regression. 
 
-# Libraries
+# Import packages ---------------------------------------------------------
 library(tidyfinance)
 library(lubridate)
 library(dplyr)
@@ -9,10 +9,7 @@ library(broom)
 
 
 # Preparing the data ------------------------------------------------------
-
-
-
-# I now manually import the cor file
+# Manually import the cor file
 Fama_Macbeth <- Cor
 # Fama_Macbeth <- readRDS("~/seminarininvesting/data/Corr.rds")
 
@@ -27,8 +24,6 @@ Fama_Macbeth$next_week_return <- 10000 * Fama_Macbeth$next_week_return
 
 
 # One variable regressions  -----------------------------------------------
-
-
 # Create a vector with all regressors
 independent_vars <- c("jr_neg", "RSJ_week", "beta_daily", 
                       "log_market_cap", "bm", "lagged_return", "RES_week")
@@ -72,7 +67,6 @@ print(summary_table)
 
 
 # Full model regression ---------------------------------------------------
-
 # Run the full model with all variables
 full_model <- estimate_fama_macbeth(
   data = Fama_Macbeth,
@@ -93,11 +87,7 @@ multiple_summary <- full_model %>%
 print(multiple_summary)
 
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with RSJ + firm-specific variables
+# Regression with RSJ + firm-specific variables ---------------------------
 model_RSJ_4F <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ RSJ_week + beta_daily + log_market_cap + bm + lagged_return",
@@ -115,11 +105,7 @@ summary_RSJ_4F <- model_RSJ_4F %>%
 print(summary_RSJ_4F)
 
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with JR + firm-specific variables
+# Regression with JR + firm-specific variables ----------------------------
 model_JR_4F <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ jr_neg + beta_daily + log_market_cap + bm + lagged_return",
@@ -137,10 +123,7 @@ summary_JR_4F <- model_JR_4F %>%
 print(summary_JR_4F)
 
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
+# Regression with RES + firm-specific variables ---------------------------
 model_RES_4F <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ RES_week + beta_daily + log_market_cap + bm + lagged_return",
@@ -157,11 +140,8 @@ summary_RES_4F <- model_RES_4F %>%
 
 print(summary_RES_4F)
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 
-# Regression with RSJ + JR + firm-specific variables
+# Regression with RSJ + JR + firm-specific variables ----------------------
 model_RSJ_JR_4F <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ RSJ_week + jr_neg + beta_daily + log_market_cap + bm + lagged_return",
@@ -178,10 +158,8 @@ summary_RSJ_JR_4F <- model_RSJ_JR_4F %>%
 
 print(summary_RSJ_JR_4F)
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 
+# Regression with RSJ + RES + firm-specific variables ---------------------
 model_RSJ_RES_4F <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ RSJ_week + RES_week + beta_daily + log_market_cap + bm + lagged_return",
@@ -199,11 +177,7 @@ summary_RSJ_RES_4F <- model_RSJ_RES_4F %>%
 print(summary_RSJ_RES_4F)
 
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-
-# Regression with JR + RES + firm-specific variables
+# Regression with JR + RES + firm-specific variables ----------------------
 model_JR_RES_4F <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ jr_neg + RES_week + beta_daily + log_market_cap + bm + lagged_return",
@@ -220,11 +194,8 @@ summary_JR_RES_4F <- model_JR_RES_4F %>%
 
 print(summary_JR_RES_4F)
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 
-# Regression with RSJ + JR + RES only
+# Regression with RSJ + JR + RES only -------------------------------------
 model_RSJ_JR_RES <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ RSJ_week + jr_neg + RES_week",
@@ -241,11 +212,8 @@ summary_RSJ_JR_RES <- model_RSJ_JR_RES %>%
 
 print(summary_RSJ_JR_RES)
 
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
-# -----------------------------------------------------------------------------
 
-# Regression with only firm-specific variables (no RSJ, JR, RES)
+# Regression with only firm-specific variables (no RSJ, JR, RES) ----------
 model_4F_only <- estimate_fama_macbeth(
   data = Fama_Macbeth,
   model = "next_week_return ~ beta_daily + log_market_cap + bm + lagged_return",
