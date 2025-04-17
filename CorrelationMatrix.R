@@ -7,6 +7,7 @@ library(scales)
 library(lmtest)
 library(broom)
 library(sandwich)
+library(data.table)
 
 
 # Create data frame ----------------------------------------------------------
@@ -90,10 +91,16 @@ print(mean_corr)
 
 
 # Compute mean and standard Error for the variables -----------------------
+results_book_sum <- results_book %>% 
+  mutate(
+    log_market_cap = log(market_cap)
+  ) %>%
+  select(week, permno, RSJ_week, jr_neg, log_market_cap, lagged_return, beta_daily, bm, RES_week, next_week_return)
+
 overall_stats <- data.frame(
   Variable = vars,
-  Mean = sapply(vars, function(v) mean(results_book[[v]], na.rm = TRUE)),
-  StdError = sapply(vars, function(v) sd(results_book[[v]], na.rm = TRUE))
+  Mean = sapply(vars, function(v) mean(results_book_sum[[v]], na.rm = TRUE)),
+  StdError = sapply(vars, function(v) sd(results_book_sum[[v]], na.rm = TRUE))
 )
 
 print(overall_stats) # Print
