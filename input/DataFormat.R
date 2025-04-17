@@ -1,6 +1,11 @@
+# Change format of the date column for easy sorting
+
+# Import packages ---------------------------------------------------------
 library(dplyr)
 library(stringr)
 
+
+# Changing format ---------------------------------------------------------
 # Folder containing the original RDS files
 rds_folder <- "/Users/job/Desktop/RDS3"
 cleaned_folder <- "input/cleanedsubset"

@@ -1,4 +1,6 @@
-# Load packages -----------------------------------------------------------
+# Filter data and group by weeks
+
+# Import packages ---------------------------------------------------------
 library(dplyr)
 library(purrr)
 library(tidyverse)
@@ -6,21 +8,23 @@ library(stringr)
 library(readr)
 library(lubridate)
 
+
 # Set input and output paths ----------------------------------------------
 rds_folder        <- "E:/Seminar/Cleaned"
 filtered_out_path <- "E:/Seminar/Weekly"
 dropped_out_path  <- "E:/Seminar/Dropped"
 rejected_out_path <- "E:/Seminar/Rejected"  # optional folder for all rejected stocks
 
-# Create output folders if they do not exist -----------------------------
+# Create output folders if they do not exist
 dir.create(filtered_out_path, showWarnings = FALSE, recursive = TRUE)
 dir.create(dropped_out_path, showWarnings = FALSE, recursive = TRUE)
 dir.create(rejected_out_path, showWarnings = FALSE, recursive = TRUE)
 
-# List all RDS files ------------------------------------------------------
+# List all RDS files
 rds_files <- list.files(rds_folder, pattern = "\\.rds$", full.names = TRUE)
 
-# Group files by ISO week -------------------------------------------------
+
+# Functions -------------------------------------------------
 extract_date <- function(path) {
   str_extract(basename(path), "\\d{4}-\\d{2}-\\d{2}")
 }
@@ -30,6 +34,8 @@ week_key <- function(date) {
   paste0(isoyear(shifted_date), "-W", sprintf("%02d", isoweek(shifted_date)))
 }
 
+
+# Get relevant data -------------------------------------------------------
 file_dates <- as.Date(sapply(rds_files, extract_date))
 week_ids <- week_key(file_dates)
 # Each element: a vector of file paths for that week
@@ -39,12 +45,16 @@ files_by_week <- split(rds_files, week_ids)
 week_list <- sort(names(files_by_week))
 cat("Weeks to process:", week_list, "\n\n")
 
+
 # Parameters for filtering ------------------------------------------------
 min_price <- 5
 max_price <- 1000
 min_n_obs <- 80
 
-# Filtering function: a stock is kept only if it appears on ALL trading days in the week
+
+
+# Filtering function ------------------------------------------------------
+# A stock is kept only if it appears on ALL trading days in the week
 # and every observation meets the conditions.
 filter_week_data <- function(file_paths, min_price, max_price, min_n_obs) {
   # Load all data for the week
@@ -80,10 +90,11 @@ filter_week_data <- function(file_paths, min_price, max_price, min_n_obs) {
   return(filtered)
 }
 
+
+# Process weeks -----------------------------------------------------------
 # Initialize a list to store the universe for each week (set of permnos that passed filtering)
 universe_by_week <- list()
 
-# --- Process the weeks ---
 # Process first week separately (no dropped computation for the first week)
 first_week <- week_list[1]
 cat("Processing first week:", first_week, "\n")
@@ -92,7 +103,7 @@ universe_by_week[[first_week]] <- unique(filtered_first$permno)
 # Save the filtered data for the first week
 saveRDS(filtered_first, file = file.path(filtered_out_path, paste0("filtered_", first_week, ".rds")))
 
-# Optional: Save rejected raw data (for stocks that did not meet filtering)
+# Save rejected raw data (for stocks that did not meet filtering)
 raw_first <- map_dfr(files_by_week[[first_week]], function(file) {
   date_str <- str_extract(basename(file), "\\d{4}-\\d{2}-\\d{2}")
   tryCatch({
