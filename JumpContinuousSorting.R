@@ -1,3 +1,6 @@
+
+#timo
+
 # This script is used to calculate the portfolio sorts for the jump and continuous portfolios based on negative JR 
 
 # Libraries 
