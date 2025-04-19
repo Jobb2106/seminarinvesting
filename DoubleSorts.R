@@ -1,15 +1,12 @@
+# Double sorting script: RSJ and RES signals
+# Purpose: Create 5x5 double-sorted portfolios and analyze return spreads and FFC4-adjusted alphas
 
-#timo vragen
-
-# Double sorting, heb ff ander bestandje want werd chaos in mn hoofd
-
-# Libraries -----------------------------------------------------------------
+# Import libraries -----------------------------------------------------------------
 library(dplyr)
 library(stringr)
 library(lmtest)
 library(sandwich)
 library(tidyverse)
-
 
 
 # Data import -------------------------------------------------------------
@@ -33,7 +30,8 @@ weekly_all <- weekly_all %>%
   ungroup() %>%
   select(week, permno, RSJ_week, RES_week, market_cap, next_week_return, weekly_risk_free)
 
-# Function to assign portfolios 
+
+# Define function ---------------------------------------------------------
 assign_portfolio <- function(data, 
                              sorting_variable, 
                              n_portfolios) {
@@ -60,7 +58,7 @@ assign_portfolio <- function(data,
   return(assigned_portfolios)
 }
 
-# Code --------------------------------------------------------------------
+# Double sorting --------------------------------------------------------------------
 # RSJ → RES Double Sorting:
 rsj_res_portfolios_ew <- weekly_all %>%
   group_by(week) %>%
@@ -131,7 +129,6 @@ res_rsj_portfolios_vw <- weekly_all %>%
 
 
 # Portfolio return calculation  -------------------------------------------
-
 # RSJ -> RES equal weighted
 RSJ_RES_ar_ew <- rsj_res_portfolios_ew %>% 
   group_by (rsj_bucket, res_bucket) %>%
@@ -168,8 +165,8 @@ RES_RSJ_ar_vw <- res_rsj_portfolios_vw %>%
     .groups = "drop"
   )
 
-# Spread Calculation -----------------------------------------------
 
+# Spread Calculation -----------------------------------------------
 compute_double_sort_spread <- function(df, primary_bucket, secondary_bucket, return_col) {
   df %>%
     pivot_wider(names_from = {{ primary_bucket }}, values_from = {{ return_col }}, names_prefix = "p") %>%
@@ -196,7 +193,8 @@ nw_spread_tstat_by_bucket <- function(df, bucket_col) {
     ungroup()
 }
 
-# Newey West t-statistics 
+
+# Newey West t-statistics  ------------------------------------------------
 tstats_rsj_res_ew <- nw_spread_tstat_by_bucket(spreads_rsj_res_ew, rsj_bucket)
 tstats_rsj_res_vw <- nw_spread_tstat_by_bucket(spreads_rsj_res_vw, rsj_bucket)
 tstats_res_rsj_ew <- nw_spread_tstat_by_bucket(spreads_res_rsj_ew, res_bucket)
@@ -204,7 +202,6 @@ tstats_res_rsj_vw <- nw_spread_tstat_by_bucket(spreads_res_rsj_vw, res_bucket)
 
 
 # Alpha calculation for the spreads  --------------------------------------
-
 # RSJ → RES
 grouped_rsj_res_ew <- spreads_rsj_res_ew %>%
   left_join(ffc4_factors, by = c("week" = "key")) %>%
@@ -245,8 +242,8 @@ alpha_tstats_rsj_res_vw <- nw_alpha_by_bucket(grouped_rsj_res_vw, rsj_bucket)
 alpha_tstats_res_rsj_ew <- nw_alpha_by_bucket(grouped_res_rsj_ew, res_bucket)
 alpha_tstats_res_rsj_vw <- nw_alpha_by_bucket(grouped_res_rsj_vw, res_bucket)
 
-# Final things for the average return spread  -----------------------------
 
+# Final things for the average return spread  -----------------------------
 calculate_weekly_avg_spread <- function(spread_df) {
   spread_df %>%
     group_by(week) %>%
@@ -290,72 +287,7 @@ alpha_avg_spread_res_rsj_ew <- calculate_avg_spread_alpha(avg_spread_res_rsj_ew,
 alpha_avg_spread_res_rsj_vw <- calculate_avg_spread_alpha(avg_spread_res_rsj_vw, ffc4_factors)
 
 
-# # For RSJ → RES sort:
-# spreads_by_rsj_bucket_ew <- rsj_res_portfolios_ew %>%
-#   group_by(week, res_bucket) %>%
-#   summarise(
-#     high = max(avg_next_ret, na.rm = TRUE),
-#     low = min(avg_next_ret, na.rm = TRUE),
-#     spread = high - low,
-#     .groups = "drop"
-#   )
-# 
-# spreads_by_rsj_bucket_vw <- rsj_res_portfolios_vw %>%
-#   group_by(week, res_bucket) %>%
-#   summarise(
-#     high = max(avg_next_ret, na.rm = TRUE),
-#     low = min(avg_next_ret, na.rm = TRUE),
-#     spread = high - low,
-#     .groups = "drop"
-#   )
-# 
-# # For RES → RSJ sort:
-# spreads_by_res_bucket_ew <- res_rsj_portfolios_ew %>%
-#   group_by(week, rsj_bucket) %>%
-#   summarise(
-#     high = max(avg_next_ret, na.rm = TRUE),
-#     low = min(avg_next_ret, na.rm = TRUE),
-#     spread = high - low,
-#     .groups = "drop"
-#   )
-# 
-# spreads_by_res_bucket_vw <- res_rsj_portfolios_vw %>%
-#   group_by(week, rsj_bucket) %>%
-#   summarise(
-#     high = max(avg_next_ret, na.rm = TRUE),
-#     low = min(avg_next_ret, na.rm = TRUE),
-#     spread = high - low,
-#     .groups = "drop"
-#   )
-# 
-# # Regression for RSJ → RES Spread:
-# model_rsj_ew <- lm(spread ~ 1, data = spreads_by_rsj_bucket_ew)
-# nw_rsj_ew <- coeftest(model_rsj_ew, vcov = NeweyWest)
-# 
-# model_rsj_vw <- lm(spread ~ 1, data = spreads_by_rsj_bucket_vw)
-# nw_rsj_vw <- coeftest(model_rsj_vw, vcov = NeweyWest)
-# 
-# # Regression for RES → RSJ Spread:
-# model_res_ew <- lm(spread ~ 1, data = spreads_by_res_bucket_ew)
-# nw_res_ew <- coeftest(model_res_ew, vcov = NeweyWest)
-# 
-# model_res_vw <- lm(spread ~ 1, data = spreads_by_res_bucket_vw)
-# nw_res_vw <- coeftest(model_res_vw, vcov = NeweyWest)
-# 
-# # Print results:
-# print(nw_rsj_ew)
-# print(nw_rsj_vw)
-# print(nw_res_ew)
-# print(nw_res_vw)
-
-
-# Hier nog ff dan FFC4 toevoegen maar zou dat gewoon met chat doen
-
-
-
-library(tidyr)
-library(dplyr)
-
+# Extra -------------------------------------------------------------------
 # Pivot the table: RSJ buckets as rows, RES buckets as columns
 reshaped_table <- RES_RSJ_ar_w %>%
   select(rsj_bucket, res_bucket, avg_return) %>%
