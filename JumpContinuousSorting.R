@@ -1,10 +1,7 @@
-<<<<<<< HEAD
 # This script is used to calculate the portfolio sorts for the jump and continuous portfolios based on negative JR 
-=======
 # This script computes equal- and value-weighted portfolio returns 
 # sorted on negative JR, for both continuous and jump components.
 # It also calculates spreads, t-stats (Newey-West), and FFC4 alphas.
->>>>>>> f52b090aaaacd6197ebfcfaa3eb97cfbcbd2e0fc
 
 # Libraries 
 library(tidyverse)
@@ -16,7 +13,7 @@ library(sandwich)
 
 
 # Create dataframe --------------------------------------------------------
-ffc4_factors <- readRDS("data/metrics/FFC4.rds") %>%
+ffc4_factors <- readRDS("input/FFC4.rds") %>%
   mutate(key = as.character(key))
 
 # Creates the weekly all dataframe: One dataframe with all results  
@@ -35,6 +32,18 @@ weekly_all <- weekly_all %>%
   ) %>%
   ungroup() %>%
   select(week, permno, jr_neg, market_cap, next_week_return, weekly_risk_free, AJR_portfolio)
+
+# For robustness analysis, create a subset of 10 years. Uncomment relevant one when performing robustness check
+
+# Subset for 1993–2002
+# weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 1993:2002, ]
+
+# Subset for 2003–2012
+# weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 2003:2012, ]
+
+# Subset for 2013–2023
+weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 2013:2023, ]
+
 
 # split the weekly_all dataframe into a continuous and jump dataframe  
 continuous_df <- weekly_all %>%
