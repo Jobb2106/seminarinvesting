@@ -33,7 +33,7 @@ weekly_all <- weekly_all %>%
 # weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 1993:2002, ]
 
 # Subset for 2003–2012
-# weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 2003:2012, ]
+weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 2003:2012, ]
 
 # Subset for 2013–2023
 # weekly_all <- weekly_all[as.integer(substr(weekly_all$week, 1, 4)) %in% 2013:2023, ]
